@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -42,9 +43,16 @@ namespace SliceyMesh
 
     public class SliceyCache : MonoBehaviour
     {
-        public bool LogMisses;
-        public bool LogHits;
-        public bool LogSlicing;
+        [Flags]
+        public enum SliceyCacheLogFlags
+        { 
+            None = 0,
+            Misses  = 1 << 0,
+            Hits    = 1 << 1,
+            Slicing = 1 << 2,
+        }
+
+        public SliceyCacheLogFlags LogFlags;
 
         enum SliceyCacheStage
         {
@@ -69,6 +77,8 @@ namespace SliceyMesh
 
         Dictionary<SliceyCacheKey, SliceyCacheValue> _cache = new();
 
+        public static SliceyCache DefaultCache { get; internal set; }
+
 #if UNITY_EDITOR
         void OnEnable()
         {
@@ -83,7 +93,7 @@ namespace SliceyMesh
         void OnAfterAssemblyReload()
         {
             _cache.Clear();
-            if (LogMisses || LogHits) Debug.Log($"{nameof(SliceyCache)} - Clearing due to Assembly Reload");
+            if (LogFlags != SliceyCacheLogFlags.None) Debug.Log($"{nameof(SliceyCache)} - Clearing due to Assembly Reload");
         }
 #endif
 
@@ -101,7 +111,7 @@ namespace SliceyMesh
             if (_cache.TryGetValue(key, out var complete))
             {
                 UpdateValue(ref key, ref complete);
-                if (LogHits) Debug.Log($"{nameof(SliceyCache)} - Cache hit");
+                if (LogFlags.HasFlag(SliceyCacheLogFlags.Hits)) Debug.Log($"{nameof(SliceyCache)} - Cache hit");
                 return (complete.Mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
             }
             else
@@ -115,7 +125,7 @@ namespace SliceyMesh
                     UpdateValue(ref canonicalKey, ref canonical);
                     canonicalBuilder = canonical.Builder;
 
-                    if (LogMisses) Debug.Log($"{nameof(SliceyCache)} - Cache miss, using cached canonical");
+                    if (LogFlags.HasFlag(SliceyCacheLogFlags.Misses)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, using cached canonical");
                 }
                 else // build the canonical mesh for the first time
                 {
@@ -131,7 +141,7 @@ namespace SliceyMesh
                         LastAccessedFrame = Time.frameCount,
                         Builder = canonicalBuilder
                     };
-                    if (LogMisses) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
+                    if (LogFlags.HasFlag(SliceyCacheLogFlags.Misses)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
                 }
 
                 var completeBuilder = canonicalBuilder.Clone();
@@ -150,7 +160,7 @@ namespace SliceyMesh
                         sourceInside.z = 1f;
                         targetInside.z = config.Size.z;
                     }
-                    if (LogSlicing) Debug.Log($"{nameof(SliceyCache)} - Slice256");
+                    if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - Slice256");
                     completeBuilder.Slice256(sourceInside, sourceOutside, targetInside, targetOutside);
                 }
 
