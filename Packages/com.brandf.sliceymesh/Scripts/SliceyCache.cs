@@ -148,21 +148,18 @@ namespace SliceyMesh
 
                 // TODO Right now we just bake to Complete synchronously.  In the future we can do this part in the background
                 // while using shader based slicing while we wait.
-                if (config.Type == SliceyMesh.SliceyMeshType.CuboidCylindrical ||
-                    config.Type == SliceyMesh.SliceyMeshType.CuboidSpherical)
+                // Now that we have a canonical mesh (typically unit sized, we need to slice it to the right size)
+                var sourceInside = Vector3.one * 0.25f;
+                var sourceOutside = Vector3.one * 0.5f;
+                var targetOutside = config.Size * 0.5f;
+                var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
+                if (config.Type == SliceyMesh.SliceyMeshType.CuboidCylindrical)
                 {
-                    var sourceInside = Vector3.one * 0.25f;
-                    var sourceOutside = Vector3.one * 0.5f;
-                    var targetOutside = config.Size * 0.5f;
-                    var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
-                    if (config.Type == SliceyMesh.SliceyMeshType.CuboidCylindrical)
-                    {
-                        sourceInside.z = 1f;
-                        targetInside.z = config.Size.z;
-                    }
-                    if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - Slice256");
-                    completeBuilder.Slice256(sourceInside, sourceOutside, targetInside, targetOutside);
+                    sourceInside.z = 1f;
+                    targetInside.z = config.Size.z;
                 }
+                if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - Slice256");
+                completeBuilder.Slice256(sourceInside, sourceOutside, targetInside, targetOutside);
 
                 var complete2 = new SliceyCacheValue()
                 {

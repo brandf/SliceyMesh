@@ -32,7 +32,28 @@ namespace SliceyMesh
 
         public SliceyQuailtyFlags QualityFlags = (SliceyQuailtyFlags)(-1); // Everything
 
-        public Camera Camera;
+
+        Camera _lastCamera; // non-serialized cache so we don't do Camera.main every frame
+        [SerializeField]
+        Camera _cameraOverride;
+        public Camera Camera
+        {
+            get
+            {
+                
+                var camera = _cameraOverride;
+                if (!camera)
+                {
+                    camera = _lastCamera;
+                    if (!camera)
+                    {
+                        camera = _lastCamera = Application.isPlaying ? Camera.main : SceneView.lastActiveSceneView.camera;
+                    }
+                }
+
+                return camera;
+            }
+        }
 
         [SerializeField]
         SliceyCache _cacheOverride;
@@ -82,16 +103,12 @@ namespace SliceyMesh
             var distanceQualityModifier = 1.0f;
             if (QualityFlags.HasFlag(SliceyQuailtyFlags.AdjustWithViewDistance))
             {
-                if (!Camera)
-                {
-                    var camera = Application.isPlaying ? Camera.main : SceneView.lastActiveSceneView.camera;
-                    if (camera)
-                    {
-                        var distance = (camera.transform.position - transform.position).magnitude;
-                        distance /= camera.transform.lossyScale.x;
-                        distanceQualityModifier = Mathf.Max(0.1f, Mathf.Min((4.0f - Mathf.Pow(distance, 1.0f / 5.0f) * 1.75f), 3.0f));
-                    }
-
+                var camera = Camera;
+                if (camera)
+                { 
+                    var distance = (camera.transform.position - transform.position).magnitude;
+                    distance /= camera.transform.lossyScale.x;
+                    distanceQualityModifier = Mathf.Max(0.1f, Mathf.Min((4.0f - Mathf.Pow(distance, 1.0f / 5.0f) * 1.75f), 3.0f));
                 }
             }
 
