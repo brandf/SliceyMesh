@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace SliceyMesh
 {
-    public static class SliceyMeshGenerator
+    public static class SliceyCanonicalGenerator
     {
         static public Vector3 BackToUp = Quaternion.AngleAxis(-45f, Vector3.right) * Vector3.back;
         static public Vector3 ForwardToUp = Quaternion.AngleAxis(45f, Vector3.right) * Vector3.forward;
@@ -11,7 +11,7 @@ namespace SliceyMesh
         static public Vector3 ForwardToRight = Quaternion.AngleAxis(45f, Vector3.down) * Vector3.forward;
         static public Vector3 ForwardToLeft = Quaternion.AngleAxis(45f, Vector3.up) * Vector3.forward;
 
-        public static SliceyMeshBuilder BuildCanonicalCuboidHard()
+        public static SliceyMeshBuilder HardCube()
         {
             var builder = SliceyMeshBuilder.Begin(SliceyMeshBuilder.SizeForQuad * 6);
             var h = 0.5f;
@@ -27,7 +27,7 @@ namespace SliceyMesh
             return builder;
         }
 
-        public static SliceyMeshBuilder BuildCanonicalCuboidCylindrical(float quality)
+        public static SliceyMeshBuilder CylindricalCube(float quality)
         {
             var builder = SliceyMeshBuilder.Begin((SliceyMeshBuilder.SizeForQuad * 7 + SliceyMeshBuilder.SizeForFan(90f, quality) + SliceyMeshBuilder.SizeForCylinder(90f, quality) * 2) * 8);
             var h = 0.5f;
@@ -55,7 +55,7 @@ namespace SliceyMesh
             return builder;
         }
 
-        public static SliceyMeshBuilder BuildCanonicalCuboidSpherical(float quality)
+        public static SliceyMeshBuilder SphericalCube(float quality)
         {
             var builder = SliceyMeshBuilder.Begin(((SliceyMeshBuilder.SizeForQuad + SliceyMeshBuilder.SizeForCylinder(90f, quality)) * 3 +
                                                     SliceyMeshBuilder.SizeForCorner3(90f, quality)) * 8);

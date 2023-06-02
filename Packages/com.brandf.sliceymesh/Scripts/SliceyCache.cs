@@ -138,9 +138,9 @@ namespace SliceyMesh
                 {
                     canonicalBuilder = config.Type switch
                     {
-                        SliceyMesh.SliceyMeshType.CuboidHard => SliceyMeshGenerator.BuildCanonicalCuboidHard(),
-                        SliceyMesh.SliceyMeshType.CuboidCylindrical => SliceyMeshGenerator.BuildCanonicalCuboidCylindrical(config.Quality),
-                        SliceyMesh.SliceyMeshType.CuboidSpherical => SliceyMeshGenerator.BuildCanonicalCuboidSpherical(config.Quality),
+                        SliceyMesh.SliceyMeshType.CuboidHard => SliceyCanonicalGenerator.HardCube(),
+                        SliceyMesh.SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CylindricalCube(config.Quality),
+                        SliceyMesh.SliceyMeshType.CuboidSpherical => SliceyCanonicalGenerator.SphericalCube(config.Quality),
                     };
                     _cache[canonicalKey] = new SliceyCacheValue()
                     {
