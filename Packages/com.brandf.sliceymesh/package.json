@@ -1,0 +1,8 @@
+{
+    "name": "com.brandf.sliceymesh",
+    "version": "0.0.1",
+    "displayName": "Slicey Mesh",
+    "description": "A dynamic mesh system",
+    "dependencies": {
+    }
+}
