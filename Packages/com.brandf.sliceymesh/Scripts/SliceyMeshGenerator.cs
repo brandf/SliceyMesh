@@ -74,44 +74,5 @@ namespace SliceyMesh
             builder.XYZSymmetry();
             return builder;
         }
-
-
-        public static Mesh CubeHardEdges(Vector3 size)
-        {
-            var builder = BuildCanonicalCuboidHard();
-            if (size != Vector3.one)
-                builder.Slice27(Vector3.one * 0.5f, size * 0.5f);
-            return builder.End();
-        }
-
-        public static Mesh CubeRoundedRect(Vector3 size, float radius, float quality)
-        {
-            var builder = BuildCanonicalCuboidCylindrical(quality);
-            if (size != Vector3.one || radius != 0.25f)
-            {
-                var sourceInside = Vector3.one * 0.25f;
-                var sourceOutside = Vector3.one * 0.5f;
-                var targetOutside = size * 0.5f;
-                var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * radius);
-                sourceInside.z = 1f;
-                targetInside.z = size.z;
-                builder.Slice256(sourceInside, sourceOutside, targetInside, targetOutside);
-            }
-            return builder.End();
-        }
-
-        public static Mesh CubeRoundedEdges(Vector3 size, float radius, float quality)
-        {
-            var builder = BuildCanonicalCuboidSpherical(quality);
-            if (size != Vector3.one || radius != 0.25f)
-            {
-                var sourceInside = Vector3.one * 0.25f;
-                var sourceOutside = Vector3.one * 0.5f;
-                var targetOutside = size * 0.5f;
-                var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * radius);
-                builder.Slice256(sourceInside, sourceOutside, targetInside, targetOutside);
-            }
-            return builder.End();
-        }
     }
 }

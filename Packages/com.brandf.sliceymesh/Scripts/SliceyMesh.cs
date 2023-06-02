@@ -23,7 +23,40 @@ namespace SliceyMesh
             AdjustWithViewDistance = 1 << 2,
         }
 
-        public SliceyMeshType Type;
+        // order Z, Y, X
+        public enum SliceyOrigin
+        {
+            FrontBottomLeft,
+            CenterBottomLeft,
+            BackBottomLeft,
+            FrontCenterLeft,
+            CenterCenterLeft,
+            BackCenterLeft,
+            FrontTopLeft,
+            CenterTopLeft,
+            BackTopLeft,
+            FrontBottomCenter,
+            CenterBottomCenter,
+            BackBottomCenter,
+            FrontCenterCenter,
+            Center,
+            BackCenterCenter,
+            FrontTopCenter,
+            CenterTopCenter,
+            BackTopCenter,
+            FrontBottomRight,
+            CenterBottomRight,
+            BackBottomRight,
+            FrontCenterRight,
+            CenterCenterRight,
+            BackCenterRight,
+            FrontTopRight,
+            CenterTopRight,
+            BackTopRight,
+        }
+
+        public SliceyMeshType Type = SliceyMeshType.CuboidSpherical;
+        public SliceyOrigin Origin = SliceyOrigin.Center;
         public Vector3 Size = Vector3.one;
         [Range(0f, 4f)]
         public float Radius = 0.25f;
@@ -32,6 +65,46 @@ namespace SliceyMesh
 
         public SliceyQuailtyFlags QualityFlags = (SliceyQuailtyFlags)(-1); // Everything
 
+
+        public Vector3 Center
+        {
+            get
+            {
+                var h = 0.5f;
+                var unitOffset = Origin switch
+                {
+                    SliceyOrigin.FrontBottomLeft    => new Vector3(-h, -h, -h),
+                    SliceyOrigin.CenterBottomLeft   => new Vector3(-h, -h, 0f),
+                    SliceyOrigin.BackBottomLeft     => new Vector3(-h, -h,  h),
+                    SliceyOrigin.FrontCenterLeft    => new Vector3(-h, 0f, -h),
+                    SliceyOrigin.CenterCenterLeft   => new Vector3(-h, 0f, 0f),
+                    SliceyOrigin.BackCenterLeft     => new Vector3(-h, 0f,  h),
+                    SliceyOrigin.FrontTopLeft       => new Vector3(-h,  h, -h),
+                    SliceyOrigin.CenterTopLeft      => new Vector3(-h,  h, 0f),
+                    SliceyOrigin.BackTopLeft        => new Vector3(-h,  h,  h),
+                    SliceyOrigin.FrontBottomCenter  => new Vector3(0f, -h, -h),
+                    SliceyOrigin.CenterBottomCenter => new Vector3(0f, -h, 0f),
+                    SliceyOrigin.BackBottomCenter   => new Vector3(0f, -h,  h),
+                    SliceyOrigin.FrontCenterCenter  => new Vector3(0f, 0f, -h),
+                    SliceyOrigin.Center             => new Vector3(0f, 0f, 0f),
+                    SliceyOrigin.BackCenterCenter   => new Vector3(0f, 0f,  h),
+                    SliceyOrigin.FrontTopCenter     => new Vector3(0f,  h, -h),
+                    SliceyOrigin.CenterTopCenter    => new Vector3(0f,  h, 0f),
+                    SliceyOrigin.BackTopCenter      => new Vector3(0f,  h,  h),
+                    SliceyOrigin.FrontBottomRight   => new Vector3( h, -h, -h),
+                    SliceyOrigin.CenterBottomRight  => new Vector3( h, -h, 0f),
+                    SliceyOrigin.BackBottomRight    => new Vector3( h, -h,  h),
+                    SliceyOrigin.FrontCenterRight   => new Vector3( h, 0f, -h),
+                    SliceyOrigin.CenterCenterRight  => new Vector3( h, 0f, 0f),
+                    SliceyOrigin.BackCenterRight    => new Vector3( h, 0f,  h),
+                    SliceyOrigin.FrontTopRight      => new Vector3( h,  h, -h),
+                    SliceyOrigin.CenterTopRight     => new Vector3( h,  h, 0f),
+                    SliceyOrigin.BackTopRight       => new Vector3( h,  h,  h),
+                };
+
+                return -Vector3.Scale(unitOffset, Size);
+            }
+        }
 
         Camera _lastCamera; // non-serialized cache so we don't do Camera.main every frame
         [SerializeField]
@@ -119,6 +192,7 @@ namespace SliceyMesh
             {
                 Type = Type,
                 Size = effectiveSize,
+                Offset = Center,
                 Radii = new Vector4(Radius, 0, 0, 0),
                 Quality = effectiveQuality,
             });

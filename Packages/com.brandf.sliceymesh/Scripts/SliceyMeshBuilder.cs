@@ -89,33 +89,34 @@ namespace SliceyMesh
             return mesh;
         }
 
-        public void Slice27(Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget)
+        public void SliceMesh27(Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Vector3 offset)
         {
-            Slice27(Beginning, _offset, halfSizeInsideSource, halfSizeInsideTarget);
+            SliceMesh27(Beginning, _offset, halfSizeInsideSource, halfSizeInsideTarget, offset);
         }
-        public void Slice256(Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget)
-        {
-            Slice256(Beginning, _offset, halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
-        }
-
-        public void Slice27(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget)
+        public void SliceMesh27(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Vector3 offset)
         {
             for (var svo = start.vertex; svo < end.vertex; svo++)
             {
-                vertices[svo] = Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget);
+                vertices[svo] = Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget) + offset;
                 // TODO: support normals?
             }
         }
 
 
-        public void Slice256(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget)
+        public void SliceMesh256(Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Vector3 offset)
+        {
+            SliceMesh256(Beginning, _offset, halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget, offset);
+        }
+
+        public void SliceMesh256(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Vector3 offset)
         {
             for (var svo = start.vertex; svo < end.vertex; svo++)
             {
-                vertices[svo] = Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
+                vertices[svo] = Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + offset;
                 // TODO: support normals?
             }
         }
+
 
         Vector3 Slice27(Vector3 v, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget) => new Vector3(Slice3(v.x, halfSizeInsideSource.x, halfSizeInsideTarget.x),
                                                                                                           Slice3(v.y, halfSizeInsideSource.y, halfSizeInsideTarget.y),

@@ -9,8 +9,15 @@ namespace SliceyMesh
     {
         public SliceyMesh.SliceyMeshType Type;
         public Vector3 Size;
+        public Vector3 Offset;
         public Vector4 Radii;
         public float Quality;
+
+
+        public override int GetHashCode()
+        {
+            return (Type, Size, Offset, Radii, Quality).GetHashCode();
+        }
 
     }
 
@@ -18,8 +25,8 @@ namespace SliceyMesh
     {
         public int LastAccessedFrame; // Time.frameCount the last time this was accessed
         public int LastAccessedCount; // number of times this was requested on the LastAccessedFrame
-        public SliceyMeshBuilder Builder; // 
-        public Mesh Mesh;
+        public SliceyMeshBuilder Builder; // for non-complete values
+        public Mesh Mesh; // for complete results
     }
 
     public enum SliceyShaderType
@@ -56,8 +63,8 @@ namespace SliceyMesh
 
         enum SliceyCacheStage
         {
-            CompleteResult,
-            CanonicalComplete,
+            CompleteResult, // includes slicing to specific size, offset, radii
+            Canonical,
             // test to see if these matter perf wise
             //CanonicalHalf, 
             //CanonicalQuadrant,
@@ -119,7 +126,7 @@ namespace SliceyMesh
                 // next, try to get a canonical mesh and then slice it to the right size
                 var canonicalKey = key;
                 var canonicalBuilder = new SliceyMeshBuilder();
-                canonicalKey.Stage = SliceyCacheStage.CanonicalComplete;
+                canonicalKey.Stage = SliceyCacheStage.Canonical;
                 if (_cache.TryGetValue(canonicalKey, out var canonical))
                 {
                     UpdateValue(ref canonicalKey, ref canonical);
@@ -158,8 +165,9 @@ namespace SliceyMesh
                     sourceInside.z = 1f;
                     targetInside.z = config.Size.z;
                 }
-                if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - Slice256");
-                completeBuilder.Slice256(sourceInside, sourceOutside, targetInside, targetOutside);
+                if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - SliceMesh256");
+                // TODO, sometimes we can use the cheaper SliceMesh27
+                completeBuilder.SliceMesh256(sourceInside, sourceOutside, targetInside, targetOutside, config.Offset);
 
                 var complete2 = new SliceyCacheValue()
                 {
