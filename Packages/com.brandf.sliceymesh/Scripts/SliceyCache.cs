@@ -86,6 +86,8 @@ namespace SliceyMesh
 
         public static SliceyCache DefaultCache { get; internal set; }
 
+        public int Count => _cache.Count;
+
 #if UNITY_EDITOR
         void OnEnable()
         {
@@ -103,6 +105,11 @@ namespace SliceyMesh
             if (LogFlags != SliceyCacheLogFlags.None) Debug.Log($"{nameof(SliceyCache)} - Clearing due to Assembly Reload");
         }
 #endif
+        
+        public void Clear()
+        {
+            _cache.Clear();
+        }
 
         public (Mesh, SliceyShaderParameters) Get(SliceyConfig config)
         {
