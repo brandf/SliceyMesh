@@ -64,7 +64,7 @@ namespace SliceyMesh
         public float Quality = 1.0f;
 
         public SliceyQuailtyFlags QualityFlags = (SliceyQuailtyFlags)(-1); // Everything
-
+        public SliceyMaterialFlags MaterialFlags = SliceyMaterialFlags.ShaderSlicingNotSupported;
 
         public Vector3 Center
         {
@@ -195,7 +195,7 @@ namespace SliceyMesh
                 Offset = Center,
                 Radii = new Vector4(Radius, 0, 0, 0),
                 Quality = effectiveQuality,
-            });
+            }, MaterialFlags);
             MeshFilter.mesh = mesh;
             // TODO: shader stuff
         }

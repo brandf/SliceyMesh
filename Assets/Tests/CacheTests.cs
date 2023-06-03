@@ -25,9 +25,9 @@ namespace SliceyMesh
             configB.Size = new Vector3(3, 1, 1);
             configC.Size = new Vector3(4, 1, 1);
 
-            Cache.Get(configA);
-            Cache.Get(configB);
-            Cache.Get(configC);
+            Cache.Get(configA, SliceyMaterialFlags.ShaderSlicingNotSupported);
+            Cache.Get(configB, SliceyMaterialFlags.ShaderSlicingNotSupported);
+            Cache.Get(configC, SliceyMaterialFlags.ShaderSlicingNotSupported);
 
             //1 per config plus 1 for the shared canonical version
             Assert.That(Cache.Count, Is.EqualTo(4));

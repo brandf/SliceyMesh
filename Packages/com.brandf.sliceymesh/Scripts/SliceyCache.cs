@@ -38,6 +38,17 @@ namespace SliceyMesh
         Cublic256Slice,
     }
 
+    
+    [Flags]
+    public enum SliceyMaterialFlags
+    {
+        ShaderSlicingNotSupported = 0,
+        SupportsRect9Slice        = 1 << 0,
+        SupportsRect16Slice       = 1 << 1,
+        SupportsCublic27Slice     = 1 << 2,
+        SupportsCublic256Slice    = 1 << 3,
+    }
+
     public struct SliceyShaderParameters
     {
         public SliceyShaderType Type;
@@ -53,7 +64,7 @@ namespace SliceyMesh
         [Flags]
         public enum SliceyCacheLogFlags
         { 
-            None = 0,
+            None    = 0,
             Misses  = 1 << 0,
             Hits    = 1 << 1,
             Slicing = 1 << 2,
@@ -111,7 +122,7 @@ namespace SliceyMesh
             _cache.Clear();
         }
 
-        public (Mesh, SliceyShaderParameters) Get(SliceyConfig config)
+        public (Mesh, SliceyShaderParameters) Get(SliceyConfig config, SliceyMaterialFlags materialFlags)
         {
             // quantize the quality to points that actually change the number of segments.
             config.Quality = SliceyMeshBuilder.QualityForSegments(90f, SliceyMeshBuilder.SegmentsForAngle(90f, config.Quality));
@@ -134,6 +145,9 @@ namespace SliceyMesh
                 var canonicalKey = key;
                 var canonicalBuilder = new SliceyMeshBuilder();
                 canonicalKey.Stage = SliceyCacheStage.Canonical;
+                canonicalKey.Config.Size = Vector3.one;
+                canonicalKey.Config.Offset = Vector3.zero;
+                canonicalKey.Config.Radii = new Vector4(0.25f, 0f ,0f);
                 if (_cache.TryGetValue(canonicalKey, out var canonical))
                 {
                     UpdateValue(ref canonicalKey, ref canonical);
@@ -145,9 +159,9 @@ namespace SliceyMesh
                 {
                     canonicalBuilder = config.Type switch
                     {
-                        SliceyMesh.SliceyMeshType.CuboidHard => SliceyCanonicalGenerator.HardCube(),
+                        SliceyMesh.SliceyMeshType.CuboidHard        => SliceyCanonicalGenerator.HardCube(),
                         SliceyMesh.SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CylindricalCube(config.Quality),
-                        SliceyMesh.SliceyMeshType.CuboidSpherical => SliceyCanonicalGenerator.SphericalCube(config.Quality),
+                        SliceyMesh.SliceyMeshType.CuboidSpherical   => SliceyCanonicalGenerator.SphericalCube(config.Quality),
                     };
                     _cache[canonicalKey] = new SliceyCacheValue()
                     {
@@ -158,23 +172,34 @@ namespace SliceyMesh
                     if (LogFlags.HasFlag(SliceyCacheLogFlags.Misses)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
                 }
 
+                // Now that we have a canonical mesh (typically unit sized), we need to slice it to the right size, radius, etc.
+                // What we need to do next is a function of:
+                //  a) How the requested config differs from the canonical mesh (if at all)
+                //  b) What type of shader slicing is supported by the caller (if any)
+                //  c) Whatever shader vs. cpu heuristics the cache may have in terms of memory / draw call caps or even synchronous vs. async Mesh generation queuing
                 var completeBuilder = canonicalBuilder.Clone();
 
-                // TODO Right now we just bake to Complete synchronously.  In the future we can do this part in the background
-                // while using shader based slicing while we wait.
-                // Now that we have a canonical mesh (typically unit sized, we need to slice it to the right size)
-                var sourceInside = Vector3.one * 0.25f;
-                var sourceOutside = Vector3.one * 0.5f;
-                var targetOutside = config.Size * 0.5f;
-                var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
-                if (config.Type == SliceyMesh.SliceyMeshType.CuboidCylindrical)
+                // TODO: At this time only a small subset of the above is supported.
+                var differsFromCanonical = true; // TODO: not always
+                if (differsFromCanonical)
                 {
-                    sourceInside.z = 1f;
-                    targetInside.z = config.Size.z;
+                    var forceSynchronousMeshGeneration = true; // TODO: not always
+                    if (materialFlags == SliceyMaterialFlags.ShaderSlicingNotSupported || forceSynchronousMeshGeneration)
+                    {
+                        var sourceInside = Vector3.one * 0.25f;
+                        var sourceOutside = Vector3.one * 0.5f;
+                        var targetOutside = config.Size * 0.5f;
+                        var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
+                        if (config.Type == SliceyMesh.SliceyMeshType.CuboidCylindrical)
+                        {
+                            sourceInside.z = 1f;
+                            targetInside.z = config.Size.z;
+                        }
+                        if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - SliceMesh256");
+                        // TODO, sometimes we can use the cheaper SliceMesh27, SliceMesh16, or SliceMesh9
+                        completeBuilder.SliceMesh256(sourceInside, sourceOutside, targetInside, targetOutside, config.Offset);
+                    }
                 }
-                if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - SliceMesh256");
-                // TODO, sometimes we can use the cheaper SliceMesh27
-                completeBuilder.SliceMesh256(sourceInside, sourceOutside, targetInside, targetOutside, config.Offset);
 
                 var complete2 = new SliceyCacheValue()
                 {

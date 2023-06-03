@@ -21,7 +21,7 @@ namespace SliceyMesh
 
             Measure.Method(() =>
             {
-                Cache.Get(config);
+                Cache.Get(config, SliceyMaterialFlags.ShaderSlicingNotSupported);
             }).
             SetUp(() =>
             {
@@ -43,11 +43,11 @@ namespace SliceyMesh
                 Radii = new Vector4(0.25f, 0f, 0f, 0f),
                 Quality = quality
             };
-            Cache.Get(config);
+            Cache.Get(config, SliceyMaterialFlags.ShaderSlicingNotSupported);
 
             Measure.Method(() =>
             {
-                Cache.Get(config);
+                Cache.Get(config, SliceyMaterialFlags.ShaderSlicingNotSupported);
             }).
             WarmupCount(5).
             IterationsPerMeasurement(1).
@@ -72,12 +72,12 @@ namespace SliceyMesh
 
             Measure.Method(() =>
             {
-                Cache.Get(configB);
+                Cache.Get(configB, SliceyMaterialFlags.ShaderSlicingNotSupported);
             }).
             SetUp(() =>
             {
                 Cache.Clear();
-                Cache.Get(configA);
+                Cache.Get(configA, SliceyMaterialFlags.ShaderSlicingNotSupported);
             }).
             WarmupCount(5).
             IterationsPerMeasurement(1).
