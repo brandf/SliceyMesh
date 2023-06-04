@@ -120,7 +120,11 @@ namespace SliceyMesh
                     camera = _lastCamera;
                     if (!camera)
                     {
+#if UNITY_EDITOR
                         camera = _lastCamera = Application.isPlaying ? Camera.main : SceneView.lastActiveSceneView.camera;
+#else
+                        camera = _lastCamera = Camera.main;
+#endif
                     }
                 }
 
