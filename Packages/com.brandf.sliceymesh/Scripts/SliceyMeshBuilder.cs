@@ -313,13 +313,13 @@ namespace SliceyMesh
             var offset = p.rotation * Vector3.right * radius;
             var normal = offset * invRadius;
             var point = center + offset;
-            StartStrip(point, point + depthOffset, normal);
+            StartStrip(point + depthOffset, point, normal);
             for (var i = 0; i < segments; ++i)
             {
                 offset = deltaRot * offset;
                 normal = offset * invRadius;
                 point = center + offset;
-                StripTo(point, point + depthOffset, normal);
+                StripTo(point + depthOffset, point, normal);
             }
         }
 

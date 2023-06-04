@@ -45,7 +45,7 @@ namespace SliceyMesh
             builder.CopyReflection(afterQuad1, afterQuad2, new Plane(BackToUp, new Vector3(0, h, -h)));    // top edge
             builder.CopyReflection(afterQuad2, beforeEdges, new Plane(BackToRight, new Vector3(h, 0, -h)));    // right edge
             var beforeCylinder = builder.Cursor;
-            builder.AddCylinder(new Pose(new Vector3(q, q, -h), Quaternion.Euler(0, 0, 90)), q, -90f, quality, q); // rounded corner edge
+            builder.AddCylinder(new Pose(new Vector3(q, q, -q), Quaternion.identity), q, 90f, quality, q); // rounded corner edge
             var afterEdges = builder.Cursor;
             builder.CopyReflection(beforeEdges, afterEdges, new Plane(Vector3.back, new Vector3(0, 0, -q)));    // q -> h edge thickness
 
@@ -66,7 +66,7 @@ namespace SliceyMesh
                             new Vector3(0, q, -h),
                             new Vector3(q, q, -h),
                             new Vector3(q, 0, -h), Vector3.back);
-            builder.AddCylinder(new Pose(new Vector3(q, q, -h + q), Quaternion.Euler(180, 90, 0)), q, -90f, quality, q);
+            builder.AddCylinder(new Pose(new Vector3(0, q, -q), Quaternion.Euler(0, 90, 0)), q, 90f, quality, q);
             var after = builder.Cursor;
             builder.CopyRotation(initial, after, Quaternion.Euler(90, 90, 0));
             builder.CopyRotation(initial, after, Quaternion.Euler(0, -90, 90));
