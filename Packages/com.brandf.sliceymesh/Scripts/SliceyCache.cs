@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace SliceyMesh
 {
-    public struct SliceyConfig
+    public struct SliceyConfig : IEquatable<SliceyConfig>
     {
         public SliceyMesh.SliceyMeshType Type;
         public Vector3 Size;
@@ -13,6 +13,13 @@ namespace SliceyMesh
         public Vector4 Radii;
         public float Quality;
 
+        public bool Equals(SliceyConfig other)
+        {
+            return (Type, Size, Offset, Radii, Quality) == (other.Type, other.Size, other.Offset, other.Radii, other.Quality);
+        }
+
+        public static bool operator==(SliceyConfig c1, SliceyConfig c2) => c1.Equals(c2);
+        public static bool operator!=(SliceyConfig c1, SliceyConfig c2) => !c1.Equals(c2);
 
         public override int GetHashCode()
         {
@@ -180,7 +187,7 @@ namespace SliceyMesh
                 var completeBuilder = canonicalBuilder.Clone();
 
                 // TODO: At this time only a small subset of the above is supported.
-                var differsFromCanonical = true; // TODO: not always
+                var differsFromCanonical = key.Config != canonicalKey.Config;
                 if (differsFromCanonical)
                 {
                     var forceSynchronousMeshGeneration = true; // TODO: not always
