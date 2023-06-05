@@ -23,8 +23,14 @@ namespace SliceyMesh
             AdjustWithViewDistance = 1 << 2,
         }
 
+        public enum SliceyOriginType
+        {
+            FromAnchor,
+            FromExplicitCenter,
+        }
+
         // order Z, Y, X
-        public enum SliceyOrigin
+        public enum SliceyAnchor
         {
             FrontBottomLeft,
             CenterBottomLeft,
@@ -56,7 +62,9 @@ namespace SliceyMesh
         }
 
         public SliceyMeshType Type = SliceyMeshType.CuboidSpherical;
-        public SliceyOrigin Origin = SliceyOrigin.Center;
+        public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
+        public SliceyAnchor Anchor = SliceyAnchor.Center;
+        public Vector3 ExplicitCenter;
         public Vector3 Size = Vector3.one;
         [Range(0f, 4f)]
         public float Radius = 0.25f;
@@ -70,39 +78,52 @@ namespace SliceyMesh
         {
             get
             {
+                if (OriginType == SliceyOriginType.FromExplicitCenter)
+                    return ExplicitCenter;
                 var h = 0.5f;
-                var unitOffset = Origin switch
+                var unitOffset = Anchor switch
                 {
-                    SliceyOrigin.FrontBottomLeft    => new Vector3(-h, -h, -h),
-                    SliceyOrigin.CenterBottomLeft   => new Vector3(-h, -h, 0f),
-                    SliceyOrigin.BackBottomLeft     => new Vector3(-h, -h,  h),
-                    SliceyOrigin.FrontCenterLeft    => new Vector3(-h, 0f, -h),
-                    SliceyOrigin.CenterCenterLeft   => new Vector3(-h, 0f, 0f),
-                    SliceyOrigin.BackCenterLeft     => new Vector3(-h, 0f,  h),
-                    SliceyOrigin.FrontTopLeft       => new Vector3(-h,  h, -h),
-                    SliceyOrigin.CenterTopLeft      => new Vector3(-h,  h, 0f),
-                    SliceyOrigin.BackTopLeft        => new Vector3(-h,  h,  h),
-                    SliceyOrigin.FrontBottomCenter  => new Vector3(0f, -h, -h),
-                    SliceyOrigin.CenterBottomCenter => new Vector3(0f, -h, 0f),
-                    SliceyOrigin.BackBottomCenter   => new Vector3(0f, -h,  h),
-                    SliceyOrigin.FrontCenterCenter  => new Vector3(0f, 0f, -h),
-                    SliceyOrigin.Center             => new Vector3(0f, 0f, 0f),
-                    SliceyOrigin.BackCenterCenter   => new Vector3(0f, 0f,  h),
-                    SliceyOrigin.FrontTopCenter     => new Vector3(0f,  h, -h),
-                    SliceyOrigin.CenterTopCenter    => new Vector3(0f,  h, 0f),
-                    SliceyOrigin.BackTopCenter      => new Vector3(0f,  h,  h),
-                    SliceyOrigin.FrontBottomRight   => new Vector3( h, -h, -h),
-                    SliceyOrigin.CenterBottomRight  => new Vector3( h, -h, 0f),
-                    SliceyOrigin.BackBottomRight    => new Vector3( h, -h,  h),
-                    SliceyOrigin.FrontCenterRight   => new Vector3( h, 0f, -h),
-                    SliceyOrigin.CenterCenterRight  => new Vector3( h, 0f, 0f),
-                    SliceyOrigin.BackCenterRight    => new Vector3( h, 0f,  h),
-                    SliceyOrigin.FrontTopRight      => new Vector3( h,  h, -h),
-                    SliceyOrigin.CenterTopRight     => new Vector3( h,  h, 0f),
-                    SliceyOrigin.BackTopRight       => new Vector3( h,  h,  h),
+                    SliceyAnchor.FrontBottomLeft    => new Vector3(-h, -h, -h),
+                    SliceyAnchor.CenterBottomLeft   => new Vector3(-h, -h, 0f),
+                    SliceyAnchor.BackBottomLeft     => new Vector3(-h, -h,  h),
+                    SliceyAnchor.FrontCenterLeft    => new Vector3(-h, 0f, -h),
+                    SliceyAnchor.CenterCenterLeft   => new Vector3(-h, 0f, 0f),
+                    SliceyAnchor.BackCenterLeft     => new Vector3(-h, 0f,  h),
+                    SliceyAnchor.FrontTopLeft       => new Vector3(-h,  h, -h),
+                    SliceyAnchor.CenterTopLeft      => new Vector3(-h,  h, 0f),
+                    SliceyAnchor.BackTopLeft        => new Vector3(-h,  h,  h),
+                    SliceyAnchor.FrontBottomCenter  => new Vector3(0f, -h, -h),
+                    SliceyAnchor.CenterBottomCenter => new Vector3(0f, -h, 0f),
+                    SliceyAnchor.BackBottomCenter   => new Vector3(0f, -h,  h),
+                    SliceyAnchor.FrontCenterCenter  => new Vector3(0f, 0f, -h),
+                    SliceyAnchor.Center             => new Vector3(0f, 0f, 0f),
+                    SliceyAnchor.BackCenterCenter   => new Vector3(0f, 0f,  h),
+                    SliceyAnchor.FrontTopCenter     => new Vector3(0f,  h, -h),
+                    SliceyAnchor.CenterTopCenter    => new Vector3(0f,  h, 0f),
+                    SliceyAnchor.BackTopCenter      => new Vector3(0f,  h,  h),
+                    SliceyAnchor.FrontBottomRight   => new Vector3( h, -h, -h),
+                    SliceyAnchor.CenterBottomRight  => new Vector3( h, -h, 0f),
+                    SliceyAnchor.BackBottomRight    => new Vector3( h, -h,  h),
+                    SliceyAnchor.FrontCenterRight   => new Vector3( h, 0f, -h),
+                    SliceyAnchor.CenterCenterRight  => new Vector3( h, 0f, 0f),
+                    SliceyAnchor.BackCenterRight    => new Vector3( h, 0f,  h),
+                    SliceyAnchor.FrontTopRight      => new Vector3( h,  h, -h),
+                    SliceyAnchor.CenterTopRight     => new Vector3( h,  h, 0f),
+                    SliceyAnchor.BackTopRight       => new Vector3( h,  h,  h),
                 };
 
                 return -Vector3.Scale(unitOffset, Size);
+            }
+        }
+
+        public Bounds LocalBounds
+        {
+            get => new Bounds(Center, Size);
+            set
+            {
+                OriginType = SliceyOriginType.FromExplicitCenter;
+                ExplicitCenter = value.center;
+                Size = value.size;
             }
         }
 
