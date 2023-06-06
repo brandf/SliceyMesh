@@ -313,7 +313,7 @@ namespace SliceyMesh
             var offset = p.rotation * Vector3.right * radius;
             var normal = offset * invRadius;
             var point = center + offset;
-            StartStrip(point + depthOffset, point, normal);
+            StripStart(point + depthOffset, point, normal);
             for (var i = 0; i < segments; ++i)
             {
                 offset = deltaRot * offset;
@@ -353,7 +353,7 @@ namespace SliceyMesh
                 var normal2 = offset2 * invRadius;
                 var point2 = center + offset2;
 
-                StartStrip(point1, point2, normal1, normal2);
+                StripStart(point1, point2, normal1, normal2);
 
                 for (var i = 0; i < nextSegments; ++i)
                 {
@@ -395,8 +395,8 @@ namespace SliceyMesh
             AddQuad(v1, v2, v3, v4, n);
         }
 
-        public void StartStrip(Vector3 v1, Vector3 v2, Vector3 n) => StartStrip(v1, v2, n, n);
-        public void StartStrip(Vector3 v1, Vector3 v2, Vector3 n1, Vector3 n2)
+        public void StripStart(Vector3 v1, Vector3 v2, Vector3 n) => StripStart(v1, v2, n, n);
+        public void StripStart(Vector3 v1, Vector3 v2, Vector3 n1, Vector3 n2)
         {
             var vo = _offset.vertex;
             vertices[vo] = v1;
@@ -452,8 +452,8 @@ namespace SliceyMesh
             _offset = (vo + 1, to + 3);
         }
 
-        public SliceyCursor StartFan(Vector3 v1, Vector3 v2, Vector3 n) => StartFan(v1, v2, n, n);
-        public SliceyCursor StartFan(Vector3 v1, Vector3 v2, Vector3 n1, Vector3 n2)
+        public SliceyCursor FanStart(Vector3 v1, Vector3 v2, Vector3 n) => FanStart(v1, v2, n, n);
+        public SliceyCursor FanStart(Vector3 v1, Vector3 v2, Vector3 n1, Vector3 n2)
         {
             var fanCursor = _offset;
             var vo = fanCursor.vertex;
@@ -476,6 +476,14 @@ namespace SliceyMesh
             _offset = (vo + 1, io + 3);
         }
 
+        /// <summary>
+        /// Clockwise winding while looking at the front face
+        /// </summary>
+        /// <param name="v1"></param>
+        /// <param name="v2"></param>
+        /// <param name="v3"></param>
+        /// <param name="v4"></param>
+        /// <param name="n"></param>
         public void AddQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, Vector3 n)
         {
             var (vo, to) = _offset;
