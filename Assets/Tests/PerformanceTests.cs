@@ -8,9 +8,9 @@ namespace SliceyMesh
     public class PerformanceTests : TestBase
     {
         [Test, Performance]
-        public void MeshTypeNoCache([Values(SliceyMesh.SliceyMeshType.CuboidHard, 
-                                            SliceyMesh.SliceyMeshType.CuboidCylindrical, 
-                                            SliceyMesh.SliceyMeshType.CuboidSpherical)] SliceyMesh.SliceyMeshType type)
+        public void MeshTypeNoCache([Values(SliceyMeshType.CuboidHard, 
+                                            SliceyMeshType.CuboidCylindrical, 
+                                            SliceyMeshType.CuboidSpherical)] SliceyMeshType type)
         {
             var config = new SliceyConfig()
             {
@@ -39,7 +39,7 @@ namespace SliceyMesh
         {
             var config = new SliceyConfig()
             {
-                Type = SliceyMesh.SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.CuboidSpherical,
                 Size = new Vector3(1, 1, 1),
                 Radii = new Vector4(0.25f, 0f, 0f, 0f),
                 Quality = quality
@@ -64,7 +64,7 @@ namespace SliceyMesh
         {
             var config = new SliceyConfig()
             {
-                Type = SliceyMesh.SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.CuboidSpherical,
                 Size = new Vector3(1, 1, 1),
                 Radii = new Vector4(0.25f, 0f, 0f, 0f),
                 Quality = quality
@@ -86,7 +86,7 @@ namespace SliceyMesh
         {
             var configA = new SliceyConfig()
             {
-                Type = SliceyMesh.SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.CuboidSpherical,
                 Size = new Vector3(1, 1, 1),
                 Radii = new Vector4(0.25f, 0f, 0f, 0f),
                 Quality = quality

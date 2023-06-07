@@ -5,9 +5,26 @@ using UnityEngine;
 
 namespace SliceyMesh
 {
+    public enum SliceyMeshType
+    {
+        CuboidHard,
+        CuboidCylindrical,
+        CuboidSpherical,
+        RectHard,
+        RectRound,
+    }
+
+    public enum SliceyFaceMode
+    { 
+        Outside,
+        Inside,
+        DoubleSided,
+    }
+
     public struct SliceyConfig : IEquatable<SliceyConfig>
     {
-        public SliceyMesh.SliceyMeshType Type;
+        public SliceyMeshType Type;
+        public SliceyFaceMode FaceMode;
         public Vector3 Size;
         public Vector3 Offset;
         public Vector4 Radii;
@@ -15,7 +32,7 @@ namespace SliceyMesh
 
         public bool Equals(SliceyConfig other)
         {
-            return (Type, Size, Offset, Radii, Quality) == (other.Type, other.Size, other.Offset, other.Radii, other.Quality);
+            return (Type, FaceMode, Size, Offset, Radii, Quality) == (other.Type, other.FaceMode, other.Size, other.Offset, other.Radii, other.Quality);
         }
 
         public static bool operator==(SliceyConfig c1, SliceyConfig c2) => c1.Equals(c2);
@@ -23,9 +40,8 @@ namespace SliceyMesh
 
         public override int GetHashCode()
         {
-            return (Type, Size, Offset, Radii, Quality).GetHashCode();
+            return (Type, FaceMode, Size, Offset, Radii, Quality).GetHashCode();
         }
-
     }
 
     public struct SliceyCacheValue
@@ -152,6 +168,7 @@ namespace SliceyMesh
                 var canonicalKey = key;
                 var canonicalBuilder = new SliceyMeshBuilder();
                 canonicalKey.Stage = SliceyCacheStage.Canonical;
+                canonicalKey.Config.FaceMode = SliceyFaceMode.Outside;
                 canonicalKey.Config.Size = Vector3.one;
                 canonicalKey.Config.Offset = Vector3.zero;
                 canonicalKey.Config.Radii = new Vector4(0.25f, 0f ,0f);
@@ -166,11 +183,11 @@ namespace SliceyMesh
                 {
                     canonicalBuilder = config.Type switch
                     {
-                        SliceyMesh.SliceyMeshType.CuboidHard => SliceyCanonicalGenerator.HardCube(),
-                        SliceyMesh.SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CylindricalCube(config.Quality),
-                        SliceyMesh.SliceyMeshType.CuboidSpherical => SliceyCanonicalGenerator.SphericalCube(config.Quality),
-                        SliceyMesh.SliceyMeshType.RectHard => SliceyCanonicalGenerator.HardRect(),
-                        SliceyMesh.SliceyMeshType.RectRound => SliceyCanonicalGenerator.RoundRect(config.Quality),
+                        SliceyMeshType.CuboidHard        => SliceyCanonicalGenerator.HardCube(),
+                        SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CylindricalCube(config.Quality),
+                        SliceyMeshType.CuboidSpherical   => SliceyCanonicalGenerator.SphericalCube(config.Quality),
+                        SliceyMeshType.RectHard          => SliceyCanonicalGenerator.HardRect(),
+                        SliceyMeshType.RectRound         => SliceyCanonicalGenerator.RoundRect(config.Quality),
                     };
                     _cache[canonicalKey] = new SliceyCacheValue()
                     {
@@ -186,7 +203,7 @@ namespace SliceyMesh
                 //  a) How the requested config differs from the canonical mesh (if at all)
                 //  b) What type of shader slicing is supported by the caller (if any)
                 //  c) Whatever shader vs. cpu heuristics the cache may have in terms of memory / draw call caps or even synchronous vs. async Mesh generation queuing
-                var completeBuilder = canonicalBuilder.Clone();
+                var completeBuilder = CloneWithFaceMode(canonicalBuilder, config.FaceMode);
 
                 // TODO: At this time only a small subset of the above is supported.
                 var differsFromCanonical = key.Config != canonicalKey.Config;
@@ -199,12 +216,12 @@ namespace SliceyMesh
                         var sourceOutside = Vector3.one * 0.5f;
                         var targetOutside = config.Size * 0.5f;
                         var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
-                        if (config.Type == SliceyMesh.SliceyMeshType.CuboidCylindrical)
+                        if (config.Type == SliceyMeshType.CuboidCylindrical)
                         {
                             sourceInside.z = 1f;
                             targetInside.z = config.Size.z;
                         } 
-                        else if (config.Type == SliceyMesh.SliceyMeshType.RectHard || config.Type == SliceyMesh.SliceyMeshType.RectRound)
+                        else if (config.Type == SliceyMeshType.RectHard || config.Type == SliceyMeshType.RectRound)
                         {
                             sourceInside.z = 1f;
                             targetInside.z = 1f;
@@ -225,6 +242,22 @@ namespace SliceyMesh
 
                 return (complete2.Mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
             }
+        }
+
+        SliceyMeshBuilder CloneWithFaceMode(SliceyMeshBuilder canonicalBuilder, SliceyFaceMode faceMode)
+        {
+            var builder = faceMode == SliceyFaceMode.DoubleSided ? canonicalBuilder.Clone(2) : canonicalBuilder.Clone();
+            if (faceMode == SliceyFaceMode.DoubleSided)
+            {
+                var initial = builder.Cursor;
+                builder.Copy(builder.Beginning, initial);
+                builder.ReverseFaces(initial, builder.Cursor);
+            }
+            else if (faceMode == SliceyFaceMode.Inside)
+            {
+                builder.ReverseFaces(builder.Beginning, builder.Cursor);
+            }
+            return builder;
         }
 
         void UpdateValue(ref SliceyCacheKey key, ref SliceyCacheValue value)

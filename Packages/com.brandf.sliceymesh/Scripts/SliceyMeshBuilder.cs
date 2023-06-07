@@ -68,6 +68,22 @@ namespace SliceyMesh
             return clone;
         }
 
+        internal SliceyMeshBuilder Clone(int sizeFactor)
+        {
+            var clone = new SliceyMeshBuilder()
+            {
+                vertices = ArrayPool<Vector3>.Shared.Rent(_size.vertex * sizeFactor),
+                normals = ArrayPool<Vector3>.Shared.Rent(_size.vertex * sizeFactor),
+                indices = ArrayPool<int>.Shared.Rent(_size.index * sizeFactor),
+                _size = _size * sizeFactor,
+                _offset = _offset,
+            };
+            Array.Copy(vertices, clone.vertices, _offset.vertex);
+            Array.Copy(normals, clone.normals, _offset.vertex);
+            Array.Copy(indices, clone.indices, _offset.index);
+            return clone;
+        }
+
         public static SliceyMeshBuilder Begin(SliceyCursor size) => new SliceyMeshBuilder()
         {
             vertices = ArrayPool<Vector3>.Shared.Rent(size.vertex),
@@ -216,6 +232,44 @@ namespace SliceyMesh
                 indices[to + 2] = indices[sto + 1] + voOffset;
             }
             _offset = (vo, to);
+        }
+
+
+        public void Copy(SliceyCursor start, SliceyCursor end)
+        {
+            var (vo, to) = _offset;
+            var voOffset = vo - start.vertex;
+            for (var svo = start.vertex; svo < end.vertex; svo++, vo++)
+            {
+                vertices[vo] = vertices[svo];
+                normals[vo] = normals[svo];
+            }
+
+            for (var sto = start.index; sto < end.index; sto += 3, to += 3)
+            {
+                indices[to] = indices[sto] + voOffset;
+                indices[to + 1] = indices[sto + 1] + voOffset;
+                indices[to + 2] = indices[sto + 2] + voOffset;
+            }
+            _offset = (vo, to);
+        }
+
+        public void ReverseFaces(SliceyCursor start, SliceyCursor end)
+        {
+            // reverse normals
+            for (var svo = start.vertex; svo < end.vertex; svo++)
+            {
+                normals[svo] = -normals[svo];
+            }
+
+            // reverse winding direction
+            for (var sto = start.index; sto < end.index; sto += 3)
+            {
+                indices[sto] = indices[sto];
+                var temp = indices[sto + 1];
+                indices[sto + 1] = indices[sto + 2];
+                indices[sto + 2] = temp;
+            }
         }
 
         public void XSymmetry() => CopyReflection(Beginning, _offset, Vector3.right);

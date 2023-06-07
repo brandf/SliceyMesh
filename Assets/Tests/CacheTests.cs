@@ -11,7 +11,7 @@ namespace SliceyMesh
         {
             var configBase = new SliceyConfig()
             {
-                Type = SliceyMesh.SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.CuboidSpherical,
                 Size = new Vector3(1, 1, 1),
                 Radii = new Vector4(0.25f, 0f, 0f, 0f),
                 Quality = 1f

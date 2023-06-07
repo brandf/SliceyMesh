@@ -7,15 +7,6 @@ namespace SliceyMesh
     [ExecuteAlways]
     public class SliceyMesh : MonoBehaviour
     {
-        public enum SliceyMeshType
-        {
-            CuboidHard,
-            CuboidCylindrical,
-            CuboidSpherical,
-            RectHard,
-            RectRound,
-        }
-
         [Flags]
         public enum SliceyQuailtyFlags
         {
@@ -64,6 +55,7 @@ namespace SliceyMesh
         }
 
         public SliceyMeshType Type = SliceyMeshType.CuboidSpherical;
+        public SliceyFaceMode FaceMode = SliceyFaceMode.Outside;
         public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
         public SliceyAnchor Anchor = SliceyAnchor.Center;
         public Vector3 ExplicitCenter;
@@ -218,6 +210,7 @@ namespace SliceyMesh
             var (mesh, shaderParams) = Cache.Get(new SliceyConfig()
             {
                 Type = Type,
+                FaceMode = FaceMode,
                 Size = effectiveSize,
                 Offset = Center,
                 Radii = new Vector4(Radius, 0, 0, 0),
