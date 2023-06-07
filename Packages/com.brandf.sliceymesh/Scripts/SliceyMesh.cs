@@ -12,6 +12,8 @@ namespace SliceyMesh
             CuboidHard,
             CuboidCylindrical,
             CuboidSpherical,
+            RectHard,
+            RectRound,
         }
 
         [Flags]

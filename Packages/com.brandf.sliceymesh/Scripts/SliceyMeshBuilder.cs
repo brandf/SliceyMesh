@@ -439,15 +439,24 @@ namespace SliceyMesh
             _offset = (vo + 2, to + 6);
         }
 
-        public void StripTo(Vector3 v, Vector3 n)
+        public void StripTo(Vector3 v, Vector3 n, bool odd = false)
         {
             var (vo, to) = _offset;
             vertices[vo] = v;
             normals[vo] = n;
 
-            indices[to] = vo - 2;
-            indices[to + 1] = vo - 1;
-            indices[to + 2] = vo;
+            if (odd)
+            {
+                indices[to] = vo - 1;
+                indices[to + 1] = vo - 2;
+                indices[to + 2] = vo;
+            }
+            else
+            {
+                indices[to] = vo - 2;
+                indices[to + 1] = vo - 1;
+                indices[to + 2] = vo;
+            }
 
             _offset = (vo + 1, to + 3);
         }

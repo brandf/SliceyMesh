@@ -166,9 +166,11 @@ namespace SliceyMesh
                 {
                     canonicalBuilder = config.Type switch
                     {
-                        SliceyMesh.SliceyMeshType.CuboidHard        => SliceyCanonicalGenerator.HardCube(),
+                        SliceyMesh.SliceyMeshType.CuboidHard => SliceyCanonicalGenerator.HardCube(),
                         SliceyMesh.SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CylindricalCube(config.Quality),
-                        SliceyMesh.SliceyMeshType.CuboidSpherical   => SliceyCanonicalGenerator.SphericalCube(config.Quality),
+                        SliceyMesh.SliceyMeshType.CuboidSpherical => SliceyCanonicalGenerator.SphericalCube(config.Quality),
+                        SliceyMesh.SliceyMeshType.RectHard => SliceyCanonicalGenerator.HardRect(),
+                        SliceyMesh.SliceyMeshType.RectRound => SliceyCanonicalGenerator.RoundRect(config.Quality),
                     };
                     _cache[canonicalKey] = new SliceyCacheValue()
                     {
@@ -201,6 +203,11 @@ namespace SliceyMesh
                         {
                             sourceInside.z = 1f;
                             targetInside.z = config.Size.z;
+                        } 
+                        else if (config.Type == SliceyMesh.SliceyMeshType.RectHard || config.Type == SliceyMesh.SliceyMeshType.RectRound)
+                        {
+                            sourceInside.z = 1f;
+                            targetInside.z = 1f;
                         }
                         if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - SliceMesh256");
                         // TODO, sometimes we can use the cheaper SliceMesh27, SliceMesh16, or SliceMesh9
