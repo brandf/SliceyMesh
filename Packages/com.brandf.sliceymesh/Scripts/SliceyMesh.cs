@@ -59,6 +59,7 @@ namespace SliceyMesh
         public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
         public SliceyAnchor Anchor = SliceyAnchor.Center;
         public Vector3 ExplicitCenter;
+        public Quaternion Orientation;
         public Vector3 Size = Vector3.one;
         [Range(0f, 4f)]
         public float Radius = 0.25f;
@@ -212,7 +213,7 @@ namespace SliceyMesh
                 Type = Type,
                 FaceMode = FaceMode,
                 Size = effectiveSize,
-                Offset = Center,
+                Pose = new Pose(Center, Orientation),
                 Radii = new Vector4(Radius, 0, 0, 0),
                 Quality = effectiveQuality,
             }, MaterialFlags);

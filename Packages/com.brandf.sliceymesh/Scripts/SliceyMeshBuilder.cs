@@ -105,38 +105,101 @@ namespace SliceyMesh
             return mesh;
         }
 
-        public void SliceMesh27(Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Vector3 offset)
+        public void SliceMesh27(Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Pose pose)
         {
-            SliceMesh27(Beginning, _offset, halfSizeInsideSource, halfSizeInsideTarget, offset);
+            SliceMesh27(Beginning, _offset, halfSizeInsideSource, halfSizeInsideTarget, pose);
         }
-        public void SliceMesh27(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Vector3 offset)
+        public void SliceMesh27(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Pose pose)
         {
-            for (var svo = start.vertex; svo < end.vertex; svo++)
+            var rotation = pose.rotation;
+            var position = pose.position;
+            var defaultRotation = rotation == Quaternion.identity;
+            var defaultPosition = position == Vector3.zero;
+            
+            // expand all combinations outside the loop to minimize inner-loop work
+            if (defaultRotation && defaultPosition)
             {
-                vertices[svo] = Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget) + offset;
-                // TODO: support normals?
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget);
+                }
+            }
+            else if (!defaultRotation && defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget);
+                    normals[svo] = rotation * normals[svo];
+                }
+            }
+            else if (defaultRotation && !defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget) + position;
+                }
+            }
+            else // both not default
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget) + position;
+                    normals[svo] = rotation * normals[svo];
+                }
             }
         }
 
 
-        public void SliceMesh256(Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Vector3 offset)
+        public void SliceMesh256(Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Pose pose)
         {
-            SliceMesh256(Beginning, _offset, halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget, offset);
+            SliceMesh256(Beginning, _offset, halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget, pose);
         }
 
-        public void SliceMesh256(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Vector3 offset)
+        public void SliceMesh256(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Pose pose)
         {
-            for (var svo = start.vertex; svo < end.vertex; svo++)
+            var rotation = pose.rotation;
+            var position = pose.position;
+
+            var defaultRotation = rotation == Quaternion.identity;
+            var defaultPosition = position == Vector3.zero;
+
+            // expand all combinations outside the loop to minimize inner-loop work
+            if (defaultRotation && defaultPosition)
             {
-                vertices[svo] = Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + offset;
-                // TODO: support normals?
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
+                }
+            }
+            else if (!defaultRotation && defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
+                    normals[svo] = rotation * normals[svo];
+                }
+            }
+            else if (defaultRotation && !defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
+                }
+            }
+            else // both not default
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
+                    normals[svo] = rotation * normals[svo];
+                }
             }
         }
 
 
         Vector3 Slice27(Vector3 v, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget) => new Vector3(Slice3(v.x, halfSizeInsideSource.x, halfSizeInsideTarget.x),
-                                                                                                          Slice3(v.y, halfSizeInsideSource.y, halfSizeInsideTarget.y),
-                                                                                                          Slice3(v.z, halfSizeInsideSource.z, halfSizeInsideTarget.z));
+                                                                                                              Slice3(v.y, halfSizeInsideSource.y, halfSizeInsideTarget.y),
+                                                                                                              Slice3(v.z, halfSizeInsideSource.z, halfSizeInsideTarget.z));
 
         Vector3 Slice256(Vector3 v, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget) => new Vector3(Slice4(v.x, halfSizeInsideSource.x, halfSizeOutsideSource.x, halfSizeInsideTarget.x, halfSizeOutsideTarget.x),
                                                                                                                                                                              Slice4(v.y, halfSizeInsideSource.y, halfSizeOutsideSource.y, halfSizeInsideTarget.y, halfSizeOutsideTarget.y),

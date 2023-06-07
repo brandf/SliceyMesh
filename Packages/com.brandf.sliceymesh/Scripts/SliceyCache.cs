@@ -26,13 +26,20 @@ namespace SliceyMesh
         public SliceyMeshType Type;
         public SliceyFaceMode FaceMode;
         public Vector3 Size;
-        public Vector3 Offset;
+        public Pose Pose;
         public Vector4 Radii;
         public float Quality;
 
         public bool Equals(SliceyConfig other)
         {
-            return (Type, FaceMode, Size, Offset, Radii, Quality) == (other.Type, other.FaceMode, other.Size, other.Offset, other.Radii, other.Quality);
+            return (Type, FaceMode, Size, Pose, Radii, Quality) == (other.Type, other.FaceMode, other.Size, other.Pose, other.Radii, other.Quality);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is SliceyConfig other)
+                return Equals(other);
+            return false;
         }
 
         public static bool operator==(SliceyConfig c1, SliceyConfig c2) => c1.Equals(c2);
@@ -40,7 +47,7 @@ namespace SliceyMesh
 
         public override int GetHashCode()
         {
-            return (Type, FaceMode, Size, Offset, Radii, Quality).GetHashCode();
+            return (Type, FaceMode, Size, Pose, Radii, Quality).GetHashCode();
         }
     }
 
@@ -170,7 +177,7 @@ namespace SliceyMesh
                 canonicalKey.Stage = SliceyCacheStage.Canonical;
                 canonicalKey.Config.FaceMode = SliceyFaceMode.Outside;
                 canonicalKey.Config.Size = Vector3.one;
-                canonicalKey.Config.Offset = Vector3.zero;
+                canonicalKey.Config.Pose = Pose.identity;
                 canonicalKey.Config.Radii = new Vector4(0.25f, 0f ,0f);
                 if (_cache.TryGetValue(canonicalKey, out var canonical))
                 {
@@ -228,7 +235,7 @@ namespace SliceyMesh
                         }
                         if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - SliceMesh256");
                         // TODO, sometimes we can use the cheaper SliceMesh27, SliceMesh16, or SliceMesh9
-                        completeBuilder.SliceMesh256(sourceInside, sourceOutside, targetInside, targetOutside, config.Offset);
+                        completeBuilder.SliceMesh256(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
                     }
                 }
 
