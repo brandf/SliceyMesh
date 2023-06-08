@@ -59,7 +59,7 @@ namespace SliceyMesh
         public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
         public SliceyAnchor Anchor = SliceyAnchor.Center;
         public Vector3 ExplicitCenter;
-        public Quaternion Orientation;
+        public Quaternion Orientation = Quaternion.identity;
         public Vector3 Size = Vector3.one;
         [Range(0f, 4f)]
         public float Radius = 0.25f;

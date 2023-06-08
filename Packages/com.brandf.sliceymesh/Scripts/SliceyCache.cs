@@ -94,10 +94,11 @@ namespace SliceyMesh
         [Flags]
         public enum SliceyCacheLogFlags
         { 
-            None    = 0,
-            Misses  = 1 << 0,
-            Hits    = 1 << 1,
-            Slicing = 1 << 2,
+            None      = 0,
+            Misses    = 1 << 0,
+            Generates = 1 << 1,
+            Hits      = 1 << 2,
+            Slicing   = 1 << 3,
         }
 
         public SliceyCacheLogFlags LogFlags;
@@ -112,10 +113,25 @@ namespace SliceyMesh
             //CanonicalOctant,
         }
 
-        struct SliceyCacheKey
+        struct SliceyCacheKey : IEquatable<SliceyCacheKey>
         {
             public SliceyCacheStage Stage;
             public SliceyConfig Config;
+
+            public bool Equals(SliceyCacheKey other)
+            {
+                return (Stage, Config) == (Stage, Config);
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is SliceyCacheKey other)
+                    return Equals(other);
+                return false;
+            }
+
+            public static bool operator ==(SliceyCacheKey k1, SliceyCacheKey k2) => k1.Equals(k2);
+            public static bool operator !=(SliceyCacheKey k1, SliceyCacheKey k2) => !k1.Equals(k2);
 
             public override int GetHashCode()
             {
@@ -202,7 +218,7 @@ namespace SliceyMesh
                         LastAccessedFrame = Time.frameCount,
                         Builder = canonicalBuilder
                     };
-                    if (LogFlags.HasFlag(SliceyCacheLogFlags.Misses)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
+                    if (LogFlags.HasFlag(SliceyCacheLogFlags.Generates)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
                 }
 
                 // Now that we have a canonical mesh (typically unit sized), we need to slice it to the right size, radius, etc.
