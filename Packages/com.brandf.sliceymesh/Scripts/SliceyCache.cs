@@ -363,6 +363,8 @@ namespace SliceyMesh
                 {
                     Target.Clear();
                 }
+
+                serializedObject.ApplyModifiedProperties();
             }
         }
 #endif
