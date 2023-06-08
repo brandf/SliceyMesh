@@ -93,12 +93,12 @@ namespace SliceyMesh
     {
         [Flags]
         public enum SliceyCacheLogFlags
-        { 
-            None      = 0,
-            Misses    = 1 << 0,
+        {
+            None = 0,
+            Misses = 1 << 0,
             Generates = 1 << 1,
-            Hits      = 1 << 2,
-            Slicing   = 1 << 3,
+            Hits = 1 << 2,
+            Slicing = 1 << 3,
         }
 
         public SliceyCacheLogFlags LogFlags;
@@ -139,6 +139,19 @@ namespace SliceyMesh
             }
         }
 
+        [Serializable]
+        struct SliceyCacheStats
+        {
+            public int count;
+            public int hits;
+            public int misses;
+            public int generates;
+            public int slicesCPU;
+        }
+
+        [SerializeField]
+        SliceyCacheStats Stats;
+
         Dictionary<SliceyCacheKey, SliceyCacheValue> _cache = new();
 
         public static SliceyCache DefaultCache { get; internal set; }
@@ -158,14 +171,31 @@ namespace SliceyMesh
 
         void OnAfterAssemblyReload()
         {
-            _cache.Clear();
+            Clear();
             if (LogFlags != SliceyCacheLogFlags.None) Debug.Log($"{nameof(SliceyCache)} - Clearing due to Assembly Reload");
         }
 #endif
+
+        public void Collect()
+        {
+            List<SliceyCacheKey> keysToRemove = new();
+            var currentFrame = Time.frameCount;
+            foreach (var kvp in _cache)
+            {
+                if (kvp.Value.LastAccessedFrame < currentFrame - 3)
+                    keysToRemove.Add(kvp.Key);
+            }
+
+            foreach (var key in keysToRemove)
+                _cache.Remove(key);
+
+            Stats.count = _cache.Count;
+        }
         
         public void Clear()
         {
             _cache.Clear();
+            Stats = new SliceyCacheStats();
         }
 
         public (Mesh, SliceyShaderParameters) Get(SliceyConfig config, SliceyMaterialFlags materialFlags)
@@ -182,11 +212,13 @@ namespace SliceyMesh
             if (_cache.TryGetValue(key, out var complete))
             {
                 UpdateValue(ref key, ref complete);
+                Stats.hits++;
                 if (LogFlags.HasFlag(SliceyCacheLogFlags.Hits)) Debug.Log($"{nameof(SliceyCache)} - Cache hit");
                 return (complete.Mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
             }
             else
             {
+                Stats.misses++;
                 // next, try to get a canonical mesh and then slice it to the right size
                 var canonicalKey = key;
                 var canonicalBuilder = new SliceyMeshBuilder();
@@ -199,7 +231,6 @@ namespace SliceyMesh
                 {
                     UpdateValue(ref canonicalKey, ref canonical);
                     canonicalBuilder = canonical.Builder;
-
                     if (LogFlags.HasFlag(SliceyCacheLogFlags.Misses)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, using cached canonical");
                 }
                 else // build the canonical mesh for the first time
@@ -218,6 +249,8 @@ namespace SliceyMesh
                         LastAccessedFrame = Time.frameCount,
                         Builder = canonicalBuilder
                     };
+
+                    Stats.generates++;
                     if (LogFlags.HasFlag(SliceyCacheLogFlags.Generates)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
                 }
 
@@ -249,6 +282,8 @@ namespace SliceyMesh
                             sourceInside.z = 1f;
                             targetInside.z = 1f;
                         }
+
+                        Stats.slicesCPU++;
                         if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - SliceMesh256");
                         // TODO, sometimes we can use the cheaper SliceMesh27, SliceMesh16, or SliceMesh9
                         completeBuilder.SliceMesh256(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
@@ -262,6 +297,7 @@ namespace SliceyMesh
                     Mesh = completeBuilder.End()
                 };
                 _cache[key] = complete2;
+                Stats.count++;
 
                 return (complete2.Mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
             }
@@ -298,5 +334,37 @@ namespace SliceyMesh
             }
             _cache[key] = value;
         }
+
+#if UNITY_EDITOR
+        [CustomEditor(typeof(SliceyCache))]
+        public class Editor : UnityEditor.Editor
+        {
+            protected SliceyCache Target => target as SliceyCache;
+
+            public override bool RequiresConstantRepaint()
+            {
+                return true;
+            }
+
+            public override void OnInspectorGUI()
+            {
+                //base.OnInspectorGUI();
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("LogFlags"));
+                GUI.enabled = false;
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Stats"));
+                GUI.enabled = true;
+
+                if (GUILayout.Button("Collect"))
+                {
+                    Target.Collect();
+                }
+
+                if (GUILayout.Button("Clear"))
+                {
+                    Target.Clear();
+                }
+            }
+        }
+#endif
     }
 }
