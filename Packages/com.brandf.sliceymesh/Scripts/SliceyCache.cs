@@ -149,7 +149,6 @@ namespace SliceyMesh
             public int slicesCPU;
         }
 
-        [SerializeField]
         SliceyCacheStats Stats;
 
         Dictionary<SliceyCacheKey, SliceyCacheValue> _cache = new();
@@ -351,7 +350,8 @@ namespace SliceyMesh
                 //base.OnInspectorGUI();
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("LogFlags"));
                 GUI.enabled = false;
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("Stats"));
+                var statsJson = JsonUtility.ToJson(Target.Stats, true);
+                GUILayout.Label(statsJson);
                 GUI.enabled = true;
 
                 if (GUILayout.Button("Collect"))

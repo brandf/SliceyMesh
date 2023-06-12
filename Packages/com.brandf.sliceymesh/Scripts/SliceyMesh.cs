@@ -182,9 +182,22 @@ namespace SliceyMesh
         protected MeshFilter MeshFilter;
         protected void EnsureRenderer()
         {
-            MeshFilter = gameObject.GetComponent<MeshFilter>() ?? gameObject.AddComponent<MeshFilter>();
+            MeshFilter = gameObject.GetComponent<MeshFilter>();
+            if (!MeshFilter)
+                MeshFilter = gameObject.AddComponent<MeshFilter>();
             MeshFilter.hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
-            Renderer = gameObject.GetComponent<MeshRenderer>() ?? gameObject.AddComponent<MeshRenderer>();
+            Renderer = gameObject.GetComponent<MeshRenderer>();
+            if (!Renderer)
+            {
+                Renderer = gameObject.AddComponent<MeshRenderer>();
+
+                // lame hack to get default material
+                GameObject primitive = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                Material defaultMaterial = primitive.GetComponent<MeshRenderer>().sharedMaterial;
+                DestroyImmediate(primitive);
+
+                Renderer.sharedMaterial = defaultMaterial; 
+            }
         }
 
         void Update()
@@ -239,11 +252,11 @@ namespace SliceyMesh
                 EditorGUILayout.PropertyField(typeProp);
                 var typeTexture = ((SliceyMeshType)typeProp.enumValueIndex) switch
                 {
-                    SliceyMeshType.CuboidHard => EdtiorResources.Instance.CuboidHard,
-                    SliceyMeshType.CuboidCylindrical => EdtiorResources.Instance.CuboidCylindrical,
-                    SliceyMeshType.CuboidSpherical => EdtiorResources.Instance.CuboidSpherical,
-                    SliceyMeshType.RectHard => EdtiorResources.Instance.RectHard,
-                    SliceyMeshType.RectRound => EdtiorResources.Instance.RectRound,
+                    SliceyMeshType.CuboidHard => SliceyMeshEdtiorResources.Instance.CuboidHard,
+                    SliceyMeshType.CuboidCylindrical => SliceyMeshEdtiorResources.Instance.CuboidCylindrical,
+                    SliceyMeshType.CuboidSpherical => SliceyMeshEdtiorResources.Instance.CuboidSpherical,
+                    SliceyMeshType.RectHard => SliceyMeshEdtiorResources.Instance.RectHard,
+                    SliceyMeshType.RectRound => SliceyMeshEdtiorResources.Instance.RectRound,
                 };
                 GUILayout.Label(typeTexture);
                 EditorGUILayout.EndHorizontal();
@@ -275,8 +288,6 @@ namespace SliceyMesh
                 EditorGUI.indentLevel++;
                 if (qualityFlags.HasFlag(SliceyQualityFlags.Explicit))
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Quality"));
-                if (qualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("_cameraOverride"));
 
                 EditorGUI.indentLevel--;
 
@@ -285,6 +296,8 @@ namespace SliceyMesh
                 { 
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("FaceMode"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Orientation"));
+                    if (qualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty("_cameraOverride"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("_cacheOverride"));
                 }
 

@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace SliceyMesh
 {
-    //[CreateAssetMenu]
-    public class EdtiorResources : ScriptableObject
+    [CreateAssetMenu(fileName = "Slicey Mesh Editor Resources", menuName = "Slicey Mesh/Editor Resources")]
+    public class SliceyMeshEdtiorResources : ScriptableObject
      {
         public Texture2D CuboidHard;
         public Texture2D CuboidCylindrical;
@@ -13,13 +13,13 @@ namespace SliceyMesh
         public Texture2D RectHard;
         public Texture2D RectRound;
 
-        static EdtiorResources instance;
-        public static EdtiorResources Instance
+        static SliceyMeshEdtiorResources instance;
+        public static SliceyMeshEdtiorResources Instance
         {
             get
             {
                 if (instance == null)
-                    instance = Resources.Load<EdtiorResources>("Slicey Mesh Editor Resources");
+                    instance = Resources.Load<SliceyMeshEdtiorResources>("Slicey Mesh Editor Resources");
                 return instance;
             }
         }
