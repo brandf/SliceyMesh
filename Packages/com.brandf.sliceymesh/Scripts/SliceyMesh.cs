@@ -8,12 +8,13 @@ namespace SliceyMesh
     public class SliceyMesh : MonoBehaviour
     {
         [Flags]
-        public enum SliceyQuailtyFlags
+        public enum SliceyQualityFlags
         {
             None                   = 0,
-            AdjustWithRadius       = 1 << 0,
-            AdjustWithScale        = 1 << 1,
-            AdjustWithViewDistance = 1 << 2,
+            Explicit               = 1 << 0,
+            AdjustWithRadius       = 1 << 1,
+            AdjustWithScale        = 1 << 2,
+            AdjustWithViewDistance = 1 << 3,
         }
 
         public enum SliceyOriginType
@@ -66,7 +67,7 @@ namespace SliceyMesh
         [Range(0f, 2f)]
         public float Quality = 1.0f;
 
-        public SliceyQuailtyFlags QualityFlags = (SliceyQuailtyFlags)(-1); // Everything
+        public SliceyQualityFlags QualityFlags = (SliceyQualityFlags)(-1); // Everything
         public SliceyMaterialFlags MaterialFlags = SliceyMaterialFlags.ShaderSlicingNotSupported;
 
         public Vector3 Center
@@ -168,7 +169,6 @@ namespace SliceyMesh
                         if (!cache)
                         {
                             cache = new GameObject("SliceyCache").AddComponent<SliceyCache>();
-                            cache.gameObject.hideFlags = HideFlags.None; //HideFlags.HideAndDontSave;
                         }
                         SliceyCache.DefaultCache = cache;
                     }
@@ -183,18 +183,19 @@ namespace SliceyMesh
         protected void EnsureRenderer()
         {
             MeshFilter = gameObject.GetComponent<MeshFilter>() ?? gameObject.AddComponent<MeshFilter>();
-            MeshFilter.hideFlags = HideFlags.None;// HideFlags.HideAndDontSave | HideFlags.HideInInspector;
+            MeshFilter.hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
             Renderer = gameObject.GetComponent<MeshRenderer>() ?? gameObject.AddComponent<MeshRenderer>();
         }
 
         void Update()
         {
             EnsureRenderer();
-            var radiusQualityModifier = QualityFlags.HasFlag(SliceyQuailtyFlags.AdjustWithRadius) ? (0.1f + Radius) / 0.35f : 1f;
+            var explicitQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : 1f;
+            var radiusQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithRadius) ? (0.1f + Radius) / 0.35f : 1f;
             // TODO: should be scale in view space
-            var scaleQualityModifier = QualityFlags.HasFlag(SliceyQuailtyFlags.AdjustWithScale) ? Mathf.Max(0.1f, Mathf.Min(transform.lossyScale.x, 3.0f)) : 1f;
+            var scaleQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithScale) ? Mathf.Max(0.1f, Mathf.Min(transform.lossyScale.x, 3.0f)) : 1f;
             var distanceQualityModifier = 1.0f;
-            if (QualityFlags.HasFlag(SliceyQuailtyFlags.AdjustWithViewDistance))
+            if (QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
             {
                 var camera = Camera;
                 if (camera)
@@ -206,7 +207,7 @@ namespace SliceyMesh
             }
 
             var effectiveSize = Vector3.Max(Vector3.zero, Size);
-            var effectiveQuality = Quality * radiusQualityModifier * scaleQualityModifier * distanceQualityModifier;
+            var effectiveQuality = explicitQualityModifier * radiusQualityModifier * scaleQualityModifier * distanceQualityModifier;
 
             var (mesh, shaderParams) = Cache.Get(new SliceyConfig()
             {
@@ -220,5 +221,77 @@ namespace SliceyMesh
             MeshFilter.mesh = mesh;
             // TODO: shader stuff
         }
+
+#if UNITY_EDITOR
+        [CustomEditor(typeof(SliceyMesh))]
+        public class Editor : UnityEditor.Editor
+        {
+            protected SliceyMesh Target => target as SliceyMesh;
+            bool UsingUncommon = false;
+
+            public override void OnInspectorGUI()
+            {
+                //base.OnInspectorGUI();
+                //EditorGUILayout.Space();
+
+                EditorGUILayout.BeginHorizontal();
+                var typeProp = serializedObject.FindProperty("Type");
+                EditorGUILayout.PropertyField(typeProp);
+                var typeTexture = ((SliceyMeshType)typeProp.enumValueIndex) switch
+                {
+                    SliceyMeshType.CuboidHard => EdtiorResources.Instance.CuboidHard,
+                    SliceyMeshType.CuboidCylindrical => EdtiorResources.Instance.CuboidCylindrical,
+                    SliceyMeshType.CuboidSpherical => EdtiorResources.Instance.CuboidSpherical,
+                    SliceyMeshType.RectHard => EdtiorResources.Instance.RectHard,
+                    SliceyMeshType.RectRound => EdtiorResources.Instance.RectRound,
+                };
+                GUILayout.Label(typeTexture);
+                EditorGUILayout.EndHorizontal();
+                var originType = serializedObject.FindProperty("OriginType");
+                
+                EditorGUILayout.PropertyField(originType);
+                EditorGUI.indentLevel++;
+                var originTypeValue = (SliceyOriginType)originType.enumValueIndex;
+                if (originTypeValue == SliceyOriginType.FromAnchor)
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Anchor"));
+                }
+                else
+                {
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("ExplicitCenter"));
+                }
+            
+                EditorGUI.indentLevel--;
+
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Size"));
+
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Radius"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("MaterialFlags"));
+                
+                var qualityProp = serializedObject.FindProperty("QualityFlags");
+                EditorGUILayout.PropertyField(qualityProp);
+
+                var qualityFlags = (SliceyQualityFlags)qualityProp.enumValueFlag;
+                EditorGUI.indentLevel++;
+                if (qualityFlags.HasFlag(SliceyQualityFlags.Explicit))
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Quality"));
+                if (qualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("_cameraOverride"));
+
+                EditorGUI.indentLevel--;
+
+                // Uncommon
+                if (UsingUncommon = EditorGUILayout.BeginFoldoutHeaderGroup(UsingUncommon, "Uncommon Settings"))
+                { 
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("FaceMode"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Orientation"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("_cacheOverride"));
+                }
+
+
+            serializedObject.ApplyModifiedProperties();
+            }
+        }
+#endif
     }
 }

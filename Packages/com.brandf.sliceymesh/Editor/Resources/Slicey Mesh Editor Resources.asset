@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 296fac811fd16f8499cf2196886629f1, type: 3}
+  m_Name: Slicey Mesh Editor Resources
+  m_EditorClassIdentifier: 
+  CuboidHard: {fileID: 2800000, guid: 007b3bd4ed46fd34091caf49398970ff, type: 3}
+  CuboidCylindrical: {fileID: 2800000, guid: 46150dd27235613438dca59aa9123150, type: 3}
+  CuboidSpherical: {fileID: 2800000, guid: db6db4422975cc8488547a3a7d147b3b, type: 3}
+  RectHard: {fileID: 2800000, guid: f73bda87f93589747aaf7399f630574b, type: 3}
+  RectRound: {fileID: 2800000, guid: 4597d0dabe90b1a4d83b4adb6fe1da5a, type: 3}
