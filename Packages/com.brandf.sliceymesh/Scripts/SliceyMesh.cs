@@ -62,9 +62,7 @@ namespace SliceyMesh
         public Vector3 ExplicitCenter;
         public Quaternion Orientation = Quaternion.identity;
         public Vector3 Size = Vector3.one;
-        [Range(0f, 4f)]
         public float Radius = 0.25f;
-        [Range(0f, 2f)]
         public float Quality = 1.0f;
 
         public SliceyQualityFlags QualityFlags = (SliceyQualityFlags)(-1); // Everything
@@ -252,11 +250,11 @@ namespace SliceyMesh
                 EditorGUILayout.PropertyField(typeProp);
                 var typeTexture = ((SliceyMeshType)typeProp.enumValueIndex) switch
                 {
-                    SliceyMeshType.CuboidHard => SliceyMeshEdtiorResources.Instance.CuboidHard,
+                    SliceyMeshType.CuboidHard        => SliceyMeshEdtiorResources.Instance.CuboidHard,
                     SliceyMeshType.CuboidCylindrical => SliceyMeshEdtiorResources.Instance.CuboidCylindrical,
-                    SliceyMeshType.CuboidSpherical => SliceyMeshEdtiorResources.Instance.CuboidSpherical,
-                    SliceyMeshType.RectHard => SliceyMeshEdtiorResources.Instance.RectHard,
-                    SliceyMeshType.RectRound => SliceyMeshEdtiorResources.Instance.RectRound,
+                    SliceyMeshType.CuboidSpherical   => SliceyMeshEdtiorResources.Instance.CuboidSpherical,
+                    SliceyMeshType.RectHard          => SliceyMeshEdtiorResources.Instance.RectHard,
+                    SliceyMeshType.RectRound         => SliceyMeshEdtiorResources.Instance.RectRound,
                 };
                 GUILayout.Label(typeTexture);
                 EditorGUILayout.EndHorizontal();
@@ -288,7 +286,6 @@ namespace SliceyMesh
                 EditorGUI.indentLevel++;
                 if (qualityFlags.HasFlag(SliceyQualityFlags.Explicit))
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Quality"));
-
                 EditorGUI.indentLevel--;
 
                 // Uncommon
