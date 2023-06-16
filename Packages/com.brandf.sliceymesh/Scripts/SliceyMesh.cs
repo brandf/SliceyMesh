@@ -198,6 +198,12 @@ namespace SliceyMesh
             }
         }
 
+        void OnValidate()
+        {
+            Radius = Mathf.Min(Mathf.Max(0f, Radius), Size.x / 2f);
+            Quality = Mathf.Max(Quality, 0f);
+        }
+
         void Update()
         {
             EnsureRenderer();
