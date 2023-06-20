@@ -12,6 +12,7 @@ namespace SliceyMesh
         CuboidSpherical,
         RectHard,
         RectRound,
+        CuboidSphericalCylindrical,
     }
 
     public enum SliceyFaceMode
@@ -236,11 +237,12 @@ namespace SliceyMesh
                 {
                     canonicalBuilder = config.Type switch
                     {
-                        SliceyMeshType.CuboidHard        => SliceyCanonicalGenerator.HardCube(),
-                        SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CylindricalCube(config.Quality),
-                        SliceyMeshType.CuboidSpherical   => SliceyCanonicalGenerator.SphericalCube(config.Quality),
-                        SliceyMeshType.RectHard          => SliceyCanonicalGenerator.HardRect(),
-                        SliceyMeshType.RectRound         => SliceyCanonicalGenerator.RoundRect(config.Quality),
+                        SliceyMeshType.CuboidHard        => SliceyCanonicalGenerator.CuboidHard(),
+                        SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CuboidCylindrical(config.Quality),
+                        SliceyMeshType.CuboidSpherical   => SliceyCanonicalGenerator.CuboidSpherical(config.Quality),
+                        SliceyMeshType.RectHard          => SliceyCanonicalGenerator.RectHard(),
+                        SliceyMeshType.RectRound         => SliceyCanonicalGenerator.RectRound(config.Quality),
+                        SliceyMeshType.CuboidSphericalCylindrical => SliceyCanonicalGenerator.CuboidSphericalCylindrical(config.Quality),
                     };
                     _cache[canonicalKey] = new SliceyCacheValue()
                     {

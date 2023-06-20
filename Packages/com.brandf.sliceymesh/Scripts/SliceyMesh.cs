@@ -261,6 +261,7 @@ namespace SliceyMesh
                     SliceyMeshType.CuboidSpherical   => SliceyMeshEdtiorResources.Instance.CuboidSpherical,
                     SliceyMeshType.RectHard          => SliceyMeshEdtiorResources.Instance.RectHard,
                     SliceyMeshType.RectRound         => SliceyMeshEdtiorResources.Instance.RectRound,
+                    SliceyMeshType.CuboidSphericalCylindrical => SliceyMeshEdtiorResources.Instance.CuboidSpherical,
                 };
                 GUILayout.Label(typeTexture);
                 EditorGUILayout.EndHorizontal();

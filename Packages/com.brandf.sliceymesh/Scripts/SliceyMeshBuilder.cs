@@ -260,21 +260,20 @@ namespace SliceyMesh
             _offset = (vo, to);
         }
 
-        public void CopyReflection(SliceyCursor start, SliceyCursor end, Vector3 n1, Vector3 n2)
+        public void Reflect(SliceyCursor start, SliceyCursor end, Vector3 normal)
         {
-            var (vo, to) = _offset;
-            var voOffset = vo - start.vertex;
-            for (var svo = start.vertex; svo < end.vertex; svo++, vo++)
+            for (var svo = start.vertex; svo < end.vertex; svo++)
             {
-                vertices[vo] = Reflect(Reflect(vertices[svo], n1), n2);
-                normals[vo] = Reflect(Reflect(normals[svo], n1), n2);
+                vertices[svo] = Reflect(vertices[svo], normal);
+                normals[svo] = Reflect(normals[svo], normal);
             }
 
-            for (var sto = start.index; sto < end.index; sto++, to++)
+            for (var sto = start.index; sto < end.index; sto += 3)
             {
-                indices[to] = indices[sto] + voOffset;
+                var temp = indices[sto + 1];
+                indices[sto + 1] = indices[sto + 2];
+                indices[sto + 2] = temp;
             }
-            _offset = (vo, to);
         }
 
         public Vector3 Reflect(Vector3 point, Plane plane) => point - 2 * plane.GetDistanceToPoint(point) * plane.normal;
