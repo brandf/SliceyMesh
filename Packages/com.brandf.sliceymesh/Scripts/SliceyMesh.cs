@@ -110,6 +110,11 @@ namespace SliceyMesh
             }
         }
 
+        public void SetLocalSize(Bounds bounds)
+        {
+            Size = bounds.size;
+        }
+
         public Bounds LocalBounds
         {
             get => new Bounds(Center, Size);

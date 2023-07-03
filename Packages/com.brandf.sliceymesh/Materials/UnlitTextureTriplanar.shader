@@ -80,7 +80,7 @@ Shader "SliceyMesh/UnlitTextureTriplanar"
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
-            float _TriplanarBlendSharpness;
+            half _TriplanarBlendSharpness;
             fixed4 _Color;
 
             v2f vert (appdata v)
@@ -91,21 +91,20 @@ Shader "SliceyMesh/UnlitTextureTriplanar"
                 o.uv_y = TRANSFORM_TEX(v.position.xz, _MainTex);
                 o.uv_z = TRANSFORM_TEX(v.position.xy, _MainTex);
 
-                if (MIRROR)
+#if MIRROR
+                if (v.normal.x < 0)
                 {
-                    if (v.normal.x < 0)
-                    {
-                        o.uv_x.x = -o.uv_x.x;
-                    }
-                    if (v.normal.y < 0)
-                    {
-                        o.uv_y.x = -o.uv_y.x;
-                    }
-                    if (v.normal.z < 0)
-                    {
-                        o.uv_z.x = -o.uv_z.x;
-                    }
+                    o.uv_x.x = -o.uv_x.x;
                 }
+                if (v.normal.y < 0)
+                {
+                    o.uv_y.x = -o.uv_y.x;
+                }
+                if (v.normal.z < 0)
+                {
+                    o.uv_z.x = -o.uv_z.x;
+                }
+#endif
 
                 o.uv_weights = pow(abs(v.normal), _TriplanarBlendSharpness);
                 UNITY_TRANSFER_FOG(o, o.position);
