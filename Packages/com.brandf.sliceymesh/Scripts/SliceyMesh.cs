@@ -55,15 +55,18 @@ namespace SliceyMesh
             BackTopRight,
         }
 
-        public SliceyMeshType Type = SliceyMeshType.CuboidSpherical;
+        public SliceyMeshType Type = SliceyMeshType.Cube;
+        public SliceyMeshRectSubType RectSubType = SliceyMeshRectSubType.Round;
+        public SliceyMeshCubeSubType CubeSubType = SliceyMeshCubeSubType.RoundSidesAndZ;
+        public SliceyMeshCylinderSubType CylinderSubType = SliceyMeshCylinderSubType.RoundZ;
         public SliceyFaceMode FaceMode = SliceyFaceMode.Outside;
         public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
         public SliceyAnchor Anchor = SliceyAnchor.Center;
         public Vector3 ExplicitCenter;
         public Quaternion Orientation = Quaternion.identity;
         public Vector3 Size = Vector3.one;
-        public float Radius = 0.25f;
-        public float Quality = 1.0f;
+        public Vector3 Radii = Vector3.one * 0.25f;
+        public Vector3 Quality = Vector3.one;
 
         public SliceyQualityFlags QualityFlags = (SliceyQualityFlags)(-1); // Everything
         public SliceyMaterialFlags MaterialFlags = SliceyMaterialFlags.ShaderSlicingNotSupported;
@@ -203,17 +206,30 @@ namespace SliceyMesh
             }
         }
 
+        private void OnEnable()
+        {
+            EnsureRenderer();
+            Renderer.enabled = true;
+        }
+
+        private void OnDisable()
+        {
+            EnsureRenderer();
+            Renderer.enabled = false;
+        }
+
         void OnValidate()
         {
-            Radius = Mathf.Min(Mathf.Max(0f, Radius), Size.x / 2f);
-            Quality = Mathf.Max(Quality, 0f);
+            Radii = Vector3.Min(Vector3.Max(Vector3.zero, Radii), Size * 0.5f);
+            Quality = Vector3.Max(Quality, Vector3.zero);
         }
 
         void Update()
         {
             EnsureRenderer();
-            var explicitQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : 1f;
-            var radiusQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithRadius) ? (0.1f + Radius) / 0.35f : 1f;
+            var explicitQuality = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : Vector3.one;
+           
+            var radiusQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithRadius) ? (0.1f + Radii.x) / 0.35f : 1f;
             // TODO: should be scale in view space
             var scaleQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithScale) ? Mathf.Max(0.1f, Mathf.Min(transform.lossyScale.x, 3.0f)) : 1f;
             var distanceQualityModifier = 1.0f;
@@ -229,15 +245,21 @@ namespace SliceyMesh
             }
 
             var effectiveSize = Vector3.Max(Vector3.zero, Size);
-            var effectiveQuality = explicitQualityModifier * radiusQualityModifier * scaleQualityModifier * distanceQualityModifier;
+            var effectiveQuality = explicitQuality * (radiusQualityModifier * scaleQualityModifier * distanceQualityModifier);
 
             var (mesh, shaderParams) = Cache.Get(new SliceyConfig()
             {
                 Type = Type,
+                SubType = Type switch
+                {
+                    SliceyMeshType.Rect => (int)RectSubType,
+                    SliceyMeshType.Cube => (int)CubeSubType,
+                    SliceyMeshType.Cylinder => (int)CylinderSubType,
+                },
                 FaceMode = FaceMode,
                 Size = effectiveSize,
                 Pose = new Pose(Center, Orientation),
-                Radii = new Vector4(Radius, 0, 0, 0),
+                Radii = Radii,
                 Quality = effectiveQuality,
             }, MaterialFlags);
             MeshFilter.mesh = mesh;
@@ -256,22 +278,51 @@ namespace SliceyMesh
                 //base.OnInspectorGUI();
                 //EditorGUILayout.Space();
 
-                EditorGUILayout.BeginHorizontal();
+                EditType(out var meshType, out var rectSubType, out var cubeSubType, out var cylinderSubType);
+                EditPosition();
+                EditSize(meshType, out var sizeProp, out var size);
+                var primaryRadius = EditRadii(meshType, size.x, rectSubType, cubeSubType, cylinderSubType);
+                if (primaryRadius != null)
+                {
+                    size.x = size.y = primaryRadius.Value;
+                }
+                var qualityFlags = EditQuality(meshType, rectSubType, cubeSubType, cylinderSubType);
+                EditMaterial();
+
+                // Uncommon
+                size = EditUncommon(meshType, size, qualityFlags);
+
+                if (meshType == SliceyMeshType.Rect || meshType == SliceyMeshType.Cylinder)
+                    sizeProp.vector3Value = size;
+
+                serializedObject.ApplyModifiedProperties();
+            }
+
+            void EditType(out SliceyMeshType meshType, out SliceyMeshRectSubType rectSubType, out SliceyMeshCubeSubType cubeSubType, out SliceyMeshCylinderSubType cylinderSubType)
+            {
                 var typeProp = serializedObject.FindProperty("Type");
                 EditorGUILayout.PropertyField(typeProp);
-                var typeTexture = ((SliceyMeshType)typeProp.enumValueIndex) switch
-                {
-                    SliceyMeshType.CuboidHard        => SliceyMeshEdtiorResources.Instance.CuboidHard,
-                    SliceyMeshType.CuboidCylindrical => SliceyMeshEdtiorResources.Instance.CuboidCylindrical,
-                    SliceyMeshType.CuboidSpherical   => SliceyMeshEdtiorResources.Instance.CuboidSpherical,
-                    SliceyMeshType.RectHard          => SliceyMeshEdtiorResources.Instance.RectHard,
-                    SliceyMeshType.RectRound         => SliceyMeshEdtiorResources.Instance.RectRound,
-                    SliceyMeshType.CuboidSphericalCylindrical => SliceyMeshEdtiorResources.Instance.CuboidSpherical,
-                };
-                GUILayout.Label(typeTexture);
-                EditorGUILayout.EndHorizontal();
+                meshType = (SliceyMeshType)typeProp.enumValueIndex;
+                EditorGUI.indentLevel++;
+                var rectSubTypeProp = serializedObject.FindProperty("RectSubType");
+                if (meshType == SliceyMeshType.Rect)
+                    EditorGUILayout.PropertyField(rectSubTypeProp, new GUIContent("Sub Type"));
+                rectSubType = (SliceyMeshRectSubType)rectSubTypeProp.enumValueIndex;
+                var cubeSubTypeProp = serializedObject.FindProperty("CubeSubType");
+                if (meshType == SliceyMeshType.Cube)
+                    EditorGUILayout.PropertyField(cubeSubTypeProp, new GUIContent("Sub Type"));
+                cubeSubType = (SliceyMeshCubeSubType)cubeSubTypeProp.enumValueIndex;
+                var cylinderSubTypeProp = serializedObject.FindProperty("CylinderSubType");
+                if (meshType == SliceyMeshType.Cylinder)
+                    EditorGUILayout.PropertyField(cylinderSubTypeProp, new GUIContent("Sub Type"));
+                cylinderSubType = (SliceyMeshCylinderSubType)cylinderSubTypeProp.enumValueIndex;
+                EditorGUI.indentLevel--;
+            }
+            
+            void EditPosition()
+            {
                 var originType = serializedObject.FindProperty("OriginType");
-                
+
                 EditorGUILayout.PropertyField(originType);
                 EditorGUI.indentLevel++;
                 var originTypeValue = (SliceyOriginType)originType.enumValueIndex;
@@ -283,26 +334,180 @@ namespace SliceyMesh
                 {
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("ExplicitCenter"));
                 }
-            
+
                 EditorGUI.indentLevel--;
+            }
 
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("Size"));
+            void EditSize(SliceyMeshType meshType, out SerializedProperty sizeProp, out Vector3 size)
+            {
+                sizeProp = serializedObject.FindProperty("Size");
+                size = sizeProp.vector3Value;
+                if (meshType == SliceyMeshType.Rect)
+                {
+                    var rectSize = EditorGUILayout.Vector2Field("Size", size);
+                    size.x = rectSize.x;
+                    size.y = rectSize.y;
 
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("Radius"));
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("MaterialFlags"));
-                
-                var qualityProp = serializedObject.FindProperty("QualityFlags");
-                EditorGUILayout.PropertyField(qualityProp);
+                }
+                else if (meshType == SliceyMeshType.Cylinder)
+                {
+                    size.z = EditorGUILayout.FloatField("Depth", size.z);
+                }
+                else
+                {
+                    EditorGUILayout.PropertyField(sizeProp);
+                }
+            }
 
-                var qualityFlags = (SliceyQualityFlags)qualityProp.enumValueFlag;
+            float? EditRadii(SliceyMeshType meshType, float primaryRadius, SliceyMeshRectSubType rectSubType, SliceyMeshCubeSubType cubeSubType, SliceyMeshCylinderSubType cylinderSubType)
+            {
+                var radiiProp = serializedObject.FindProperty("Radii");
+                var radiiValue = radiiProp.vector3Value;
+                if (meshType == SliceyMeshType.Rect && rectSubType == SliceyMeshRectSubType.Hard ||
+                    meshType == SliceyMeshType.Cube && cubeSubType == SliceyMeshCubeSubType.Hard)
+                {
+                    return null;
+                }
+
+                float? sizeRadius = null;
+                EditorGUILayout.LabelField("Radii");
                 EditorGUI.indentLevel++;
-                if (qualityFlags.HasFlag(SliceyQualityFlags.Explicit))
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Quality"));
-                EditorGUI.indentLevel--;
 
-                // Uncommon
+                switch (meshType)
+                {
+                    case SliceyMeshType.Rect:
+                        switch (rectSubType)
+                        {
+                            case SliceyMeshRectSubType.Round:
+                                radiiValue = Vector3.one * EditorGUILayout.FloatField("Corner Radius", radiiValue.x);
+                                break;
+                        }
+                        break;
+                    case SliceyMeshType.Cube:
+                        switch (cubeSubType)
+                        {
+                            case SliceyMeshCubeSubType.RoundSides:
+                                radiiValue = Vector3.one * EditorGUILayout.FloatField("Side Edge Radius", radiiValue.x);
+                                break;
+                            case SliceyMeshCubeSubType.RoundSidesAndZ:
+                                radiiValue.x = EditorGUILayout.FloatField("Side Edge Radius", radiiValue.x);
+                                radiiValue.y = EditorGUILayout.FloatField("Front/Back Edge Radius", radiiValue.y);
+                                radiiValue.z = radiiValue.y;
+                                break;
+                            case SliceyMeshCubeSubType.RoundSidesAndZAsymmetric:
+                                radiiValue.x = EditorGUILayout.FloatField("Side Edge Radius", radiiValue.x);
+                                radiiValue.y = EditorGUILayout.FloatField("Front Edge Radius", radiiValue.y);
+                                radiiValue.z = EditorGUILayout.FloatField("Back Edge Radius", radiiValue.z);
+                                break;
+                        }
+                        break;
+                    case SliceyMeshType.Cylinder:
+                        sizeRadius = EditorGUILayout.FloatField("Primary Radius", primaryRadius);
+                        
+                        switch (cylinderSubType)
+                        {
+                            case SliceyMeshCylinderSubType.RoundZ:
+                                radiiValue = Vector3.one * EditorGUILayout.FloatField("Edge Radius", radiiValue.x);
+                                break;
+                            case SliceyMeshCylinderSubType.RoundZAsymmetric:
+                                radiiValue.x = EditorGUILayout.FloatField("Front Edge Radius", radiiValue.x);
+                                radiiValue.y = EditorGUILayout.FloatField("Back Edge Radius", radiiValue.y);
+                                radiiValue.z = radiiValue.x;
+                                break;
+                        }
+                        break;
+                };
+
+                EditorGUI.indentLevel--;
+                radiiProp.vector3Value = radiiValue;
+                return sizeRadius;
+            }
+
+            SliceyQualityFlags EditQuality(SliceyMeshType meshType, SliceyMeshRectSubType rectSubType, SliceyMeshCubeSubType cubeSubType, SliceyMeshCylinderSubType cylinderSubType)
+            {
+                if (meshType == SliceyMeshType.Rect && rectSubType == SliceyMeshRectSubType.Hard ||
+                    meshType == SliceyMeshType.Cube && cubeSubType == SliceyMeshCubeSubType.Hard)
+                {
+                    return SliceyQualityFlags.None;
+                }
+
+                var qualityFlagsProp = serializedObject.FindProperty("QualityFlags");
+                EditorGUILayout.PropertyField(qualityFlagsProp, new GUIContent("Quality"));
+
+                var qualityFlags = (SliceyQualityFlags)qualityFlagsProp.enumValueFlag;
+                if (!qualityFlags.HasFlag(SliceyQualityFlags.Explicit))
+                    return qualityFlags;
+
+
+                var qualityProp = serializedObject.FindProperty("Quality");
+                var qualityValue = qualityProp.vector3Value;
+
+                EditorGUI.indentLevel++;
+                switch (meshType)
+                {
+                    case SliceyMeshType.Rect:
+                        switch (rectSubType)
+                        {
+                            case SliceyMeshRectSubType.Round:
+                                qualityValue = Vector3.one * EditorGUILayout.FloatField("Corner Quality", qualityValue.x);
+                                break;
+                        }
+                        break;
+                    case SliceyMeshType.Cube:
+                        switch (cubeSubType)
+                        {
+                            case SliceyMeshCubeSubType.RoundSides:
+                                qualityValue = Vector3.one * EditorGUILayout.FloatField("Side Edge Quality", qualityValue.x);
+                                break;
+                            case SliceyMeshCubeSubType.RoundSidesAndZ:
+                                qualityValue.x = EditorGUILayout.FloatField("Side Edge Quality", qualityValue.x);
+                                qualityValue.y = EditorGUILayout.FloatField("Front/Back Edge Quality", qualityValue.y);
+                                qualityValue.z = qualityValue.y;
+                                break;
+                            case SliceyMeshCubeSubType.RoundSidesAndZAsymmetric:
+                                qualityValue.x = EditorGUILayout.FloatField("Side Edge Quality", qualityValue.x);
+                                qualityValue.y = EditorGUILayout.FloatField("Front Edge Quality", qualityValue.y);
+                                qualityValue.z = EditorGUILayout.FloatField("Back Edge Quality", qualityValue.z);
+                                break;
+                        }
+                        break;
+                    case SliceyMeshType.Cylinder:
+                        switch (cylinderSubType)
+                        {
+                            case SliceyMeshCylinderSubType.Hard:
+                                qualityValue = Vector3.one * EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
+                                break;
+                            case SliceyMeshCylinderSubType.RoundZ:
+                                qualityValue.x = EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
+                                qualityValue.y = EditorGUILayout.FloatField("Edge Quality", qualityValue.y);
+                                qualityValue.z = qualityValue.y;
+                                break;
+                            case SliceyMeshCylinderSubType.RoundZAsymmetric:
+                                qualityValue.x = EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
+                                qualityValue.y = EditorGUILayout.FloatField("Front Edge Quality", qualityValue.y);
+                                qualityValue.z = EditorGUILayout.FloatField("Back Edge Quality", qualityValue.z);
+                                break;
+                        }
+                        break;
+                };
+
+
+                qualityProp.vector3Value = qualityValue;
+                EditorGUI.indentLevel--;
+                return qualityFlags;
+            }
+
+            void EditMaterial()
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("MaterialFlags"));
+            }
+
+            Vector3 EditUncommon(SliceyMeshType meshType, Vector3 size, SliceyQualityFlags qualityFlags)
+            {
                 if (UsingUncommon = EditorGUILayout.BeginFoldoutHeaderGroup(UsingUncommon, "Uncommon Settings"))
-                { 
+                {
+                    if (meshType == SliceyMeshType.Rect)
+                        size.z = EditorGUILayout.FloatField("Depth", size.z);
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("FaceMode"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Orientation"));
                     if (qualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
@@ -310,8 +515,7 @@ namespace SliceyMesh
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("_cacheOverride"));
                 }
 
-
-            serializedObject.ApplyModifiedProperties();
+                return size;
             }
         }
 #endif

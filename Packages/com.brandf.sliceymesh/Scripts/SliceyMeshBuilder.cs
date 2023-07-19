@@ -37,6 +37,7 @@ namespace SliceyMesh
         public static int SegmentsForAngle(float angle, float quality) => Mathf.Max(1, 1 + Mathf.FloorToInt(quality * Mathf.Abs(angle) / 10f));
         public static float QualityForSegments(float angle, int segments) => (segments - 1) * 10 / Mathf.Abs(angle);
         public static SliceyCursor SizeForFan(float angle, float quality) => SizeForTri * SegmentsForAngle(angle, quality);
+        public static SliceyCursor SizeForRevolvedArc(float angleRadial, float angleArc, float qualityRadial, float qualityZ) => SizeForQuadStrip(SegmentsForAngle(angleArc, qualityZ)) * SegmentsForAngle(angleRadial, qualityRadial);
         public static SliceyCursor SizeForCylinder(float angle, float quality) => SizeForQuadStrip(SegmentsForAngle(angle, quality));
         public static SliceyCursor SizeForCorner3(float angle, float quality)
         {
@@ -411,7 +412,7 @@ namespace SliceyMesh
             {
                 var ccur = deltaRot * cprev;
                 var cur = center + ccur;
-                AddTri(center, prev, cur, normal);
+                AddTri(center, cur, prev, normal);
                 cprev = ccur;
                 prev = cur;
             }
@@ -436,6 +437,42 @@ namespace SliceyMesh
                 normal = offset * invRadius;
                 point = center + offset;
                 StripTo(point + depthOffset, point, normal);
+            }
+        }
+
+        public void AddRevolvedArc(Pose p, float radius, float radiusZ, float angleRadius, float angleZ, float qualityRadius, float qualityZ)
+        {
+            var segmentsRadius = SegmentsForAngle(angleRadius, qualityRadius);
+            var segmentsZ = SegmentsForAngle(angleZ, qualityZ);
+            var deltaAngleRadius = angleRadius / segmentsRadius;
+            var deltaAngleZ = angleZ / segmentsZ;
+
+            var offsetInitial = p.position + Vector3.right * (radius - radiusZ);
+            var offsetInitialZ = Vector3.back * radiusZ;
+            var offsetCenter = offsetInitial - offsetInitialZ;
+            var invRadiusZ = 1f / radiusZ;
+
+            (Vector3, Vector3) GetPointAndNormal(float angleRadius, float angleZ)
+            {
+                var rotRadius = Quaternion.AngleAxis(angleRadius, Vector3.forward);
+                var rotZ = Quaternion.AngleAxis(angleZ, Vector3.down);
+                var offsetZ = rotZ * offsetInitialZ;
+                var point = rotRadius * (offsetCenter + offsetZ);
+                var normal = rotRadius * (offsetZ * invRadiusZ);
+                return (point, normal);
+            }
+            
+            for (var i = 0; i < segmentsRadius; ++i)
+            {
+                for (var j = 0; j <= segmentsZ; ++j)
+                {
+                    var (p1, n1) = GetPointAndNormal(i * deltaAngleRadius, j * deltaAngleZ);
+                    var (p2, n2) = GetPointAndNormal((i+1) * deltaAngleRadius, j * deltaAngleZ);
+                    if (j == 0)
+                        StripStart(p1, p2, n1, n2);
+                    else
+                        StripTo(p1, p2, n1, n2);
+                }
             }
         }
 

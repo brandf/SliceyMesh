@@ -11,10 +11,11 @@ namespace SliceyMesh
         {
             var configBase = new SliceyConfig()
             {
-                Type = SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.Cube,
+                SubType = (int)SliceyMeshCubeSubType.RoundSides,
                 Size = new Vector3(1, 1, 1),
                 Radii = new Vector4(0.25f, 0f, 0f, 0f),
-                Quality = 1f
+                Quality = new Vector2(1f, 1f),
             };
 
             var configA = configBase;

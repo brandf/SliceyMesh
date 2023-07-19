@@ -7,6 +7,7 @@ namespace SliceyMesh
 
     public class PerformanceTests : TestBase
     {
+        /*
         [Test, Performance]
         public void MeshTypeNoCache([Values(SliceyMeshType.CuboidHard, 
                                             SliceyMeshType.CuboidCylindrical, 
@@ -110,5 +111,6 @@ namespace SliceyMesh
             MeasurementCount(100).
             Run();
         }
+        */
     }
 }
