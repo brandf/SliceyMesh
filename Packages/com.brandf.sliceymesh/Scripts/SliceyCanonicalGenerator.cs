@@ -11,13 +11,38 @@ namespace SliceyMesh
         static public Vector3 ForwardToRight = Quaternion.AngleAxis(45f, Vector3.down) * Vector3.forward;
         static public Vector3 ForwardToLeft = Quaternion.AngleAxis(45f, Vector3.up) * Vector3.forward;
 
-        static public Vector3 DiagXY = new Vector3(1f, 1f, 0).normalized;
+        static public Vector3 DiagXY = new Vector3(-1f, 1f, 0).normalized;
+
+        static int PortionFactor(SliceyMeshPortion portion, bool isQuadrant)
+        {
+            return portion switch
+            {
+                SliceyMeshPortion.Full => isQuadrant ? 4 : 8,
+                SliceyMeshPortion.Half => isQuadrant ? 2 : 4,
+                SliceyMeshPortion.Partial => 1,
+            };
+        }
+
+        static void ApplySymmetry(ref SliceyMeshBuilder builder, SliceyMeshPortion portion, bool isQuadrant)
+        {
+            switch (portion)
+            {
+                case SliceyMeshPortion.Full:
+                    if (isQuadrant) builder.XYSymmetry(); else builder.XYZSymmetry();
+                    break;
+                case SliceyMeshPortion.Half:
+                    if (isQuadrant) builder.YSymmetry(); else builder.XYSymmetry();
+                    break;
+                case SliceyMeshPortion.Partial:
+                    break;
+            }
+        }
 
         // this isn't really a new type, it's just an optimization for when radius = 0
-        public static SliceyMeshBuilder RectHard()
+        public static SliceyMeshBuilder RectHard(SliceyMeshPortion portion)
         {
-            var builder = RectHardQuadrant(4);
-            builder.XYSymmetry();
+            var builder = RectHardQuadrant(PortionFactor(portion, true));
+            ApplySymmetry(ref builder, portion, true);
             return builder;
         }
         
@@ -32,13 +57,14 @@ namespace SliceyMesh
 
             return builder;
         }
-        
-        public static SliceyMeshBuilder RectRound(float quality)
+
+        public static SliceyMeshBuilder RectRound(SliceyMeshPortion portion, float quality)
         {
-            var builder = RectRoundQuadrant(quality, 4);
-            builder.XYSymmetry();
+            var builder = RectRoundQuadrant(quality, PortionFactor(portion, true));
+            ApplySymmetry(ref builder, portion, true);
             return builder;
         }
+
 
         public static SliceyMeshBuilder RectRoundQuadrant(float quality, int sizeFactor)
         {
@@ -63,10 +89,10 @@ namespace SliceyMesh
         }
 
         // this isn't really a new type, it's just an optimization for when radius = 0
-        public static SliceyMeshBuilder CubeHard()
+        public static SliceyMeshBuilder CubeHard(SliceyMeshPortion portion)
         {
-            var builder = CubeHardOctant(8);
-            builder.XYZSymmetry();
+            var builder = CubeHardOctant(PortionFactor(portion, false));
+            ApplySymmetry(ref builder, portion, false);
             return builder;
         }
 
@@ -92,10 +118,10 @@ namespace SliceyMesh
             builder.CopyReflection(initial, afterQuad, ForwardToRight);                 // right
         }
 
-        public static SliceyMeshBuilder CubeRoundSides(float quality)
+        public static SliceyMeshBuilder CubeRoundSides(SliceyMeshPortion portion, float quality)
         {
-            var builder = CubeRoundSidesOctant(quality, 8);
-            builder.XYZSymmetry();
+            var builder = CubeRoundSidesOctant(quality, PortionFactor(portion, false));
+            ApplySymmetry(ref builder, portion, false);
             return builder;
         }
 
@@ -128,8 +154,8 @@ namespace SliceyMesh
             builder.StripTo(new Vector3(0, q, -h),
                             new Vector3(q, q, -h), Vector3.back, true);
             builder.StripTo(new Vector3(0, 0, -h), Vector3.back);
-            var afteStrip = builder.Cursor;
-            builder.CopyReflection(initial, afteStrip, DiagXY);
+            var afterStrip = builder.Cursor;
+            builder.CopyReflection(initial, afterStrip, DiagXY);
 
             builder.AddFan(new Pose(new Vector3(q, q, -h), Quaternion.identity), q, 90f, quality); // rounded corner
 
@@ -139,59 +165,62 @@ namespace SliceyMesh
             builder.CopyReflection(beforeCylinder, afterCylinder, new Plane(Vector3.back, new Vector3(0, 0, -q)));    // q -> h edge thickness
         }
 
-        public static SliceyMeshBuilder CubeRoundSidesAndZ(float qualitySides, float qualityZ)
+        public static SliceyMeshBuilder CubeRoundSidesAndZ(SliceyMeshPortion portion, float qualitySides, float qualityZ)
         {
-            var builder = CubeRoundSidesAndZOctant(qualitySides, qualityZ, 8);
-            builder.XYZSymmetry();
+            var builder = CubeRoundSidesAndZOctant(qualitySides, qualityZ, PortionFactor(portion, false));
+            ApplySymmetry(ref builder, portion, false);
             return builder;
         }
 
         public static SliceyMeshBuilder CubeRoundSidesAndZOctant(float qualitySides, float qualityZ, int sizeFactor)
         {
-            // uniform
-            if (qualitySides == qualityZ)
-            {
-                var builder = SliceyMeshBuilder.Begin(((SliceyMeshBuilder.SizeForQuad + SliceyMeshBuilder.SizeForCylinder(90f, qualitySides)) * 3 +
-                                                        SliceyMeshBuilder.SizeForCorner3(90f, qualitySides)) * sizeFactor);
-                var h = 0.5f;
-                var q = 0.25f;
-                var initial = builder.Cursor;
-                builder.AddQuad(new Vector3(0, 0, -h),
-                                new Vector3(0, q, -h),
-                                new Vector3(q, q, -h),
-                                new Vector3(q, 0, -h), Vector3.back);
-                builder.AddCylinder(new Pose(new Vector3(0, q, -q), Quaternion.Euler(0, 90, 0)), q, 90f, qualitySides, q);
-                var after = builder.Cursor;
-                builder.CopyRotation(initial, after, Quaternion.Euler(90, 90, 0));
-                builder.CopyRotation(initial, after, Quaternion.Euler(0, -90, 90));
-                builder.AddCorner3(new Pose(new Vector3(q, q, -h + q), Quaternion.identity), q, 90f, qualitySides);
-                return builder;
-            }
-            else
-            {
-                return default;
-            }    
+
+            var builder = SliceyMeshBuilder.Begin((SliceyMeshBuilder.SizeForStrip(5)*2 +
+                                                   SliceyMeshBuilder.SizeForQuad * 2 +
+                                                   SliceyMeshBuilder.SizeForFan(90f, qualitySides) + 
+                                                   SliceyMeshBuilder.SizeForCylinder(90f, qualitySides) +
+                                                   SliceyMeshBuilder.SizeForCylinder(90f, qualityZ) * 2 +
+                                                   SliceyMeshBuilder.SizeForRevolvedArc(90f, 90f, qualitySides, qualityZ)) * sizeFactor);
+            AddCubeRoundSidesAndZOctant(ref builder, qualitySides, qualityZ);
+            return builder;  
         }
 
-        public static SliceyMeshBuilder CubeRoundSidesAndZAsymmetric(float qualitySides, float qualityZ1, float qualityZ2)
+        public static void AddCubeRoundSidesAndZOctant(ref SliceyMeshBuilder builder, float qualitySides, float qualityZ)
         {
-            // Round Z- face
-            var builder = CubeRoundSidesAndZOctant(qualitySides, qualityZ1, 8); // TODO this needs to factor in both qualities
+            var sideRadius = 0.25f;
+            var edgeRadius = 0.125f;
+            var innerSize = 0.5f - sideRadius;
+            var fanRadius = sideRadius - edgeRadius;
+            var depth = 0.5f;
+            var sideDepth = depth - edgeRadius;
 
-            // Hard Z+ face
-            var before = builder.Cursor;
-            AddCubeRoundSidesOctant(ref builder, qualitySides);
+            var initial = builder.Cursor;
+            builder.StripStart(new Vector3(0, sideDepth, -depth),
+                               new Vector3(innerSize, sideDepth, -depth), Vector3.back);
+            builder.StripTo(new Vector3(0, innerSize, -depth),
+                            new Vector3(innerSize, innerSize, -depth), Vector3.back, true);
+
+            builder.StripTo(new Vector3(0, 0, -depth), Vector3.back);
+
+            builder.AddQuad(new Vector3(0, depth, 0),
+                            new Vector3(innerSize, depth, 0),
+                            new Vector3(innerSize, depth, -sideDepth),
+                            new Vector3(0, depth, -sideDepth), Vector3.up);
+
+            builder.AddCylinder(new Pose(new Vector3(0, sideDepth, -sideDepth), Quaternion.Euler(0, 90f, 0)), edgeRadius, 90f, qualityZ, innerSize);
             var after = builder.Cursor;
-            builder.Reflect(before, after, Vector3.forward);
+            builder.CopyReflection(initial, after, DiagXY);
 
-            builder.XYSymmetry();
-            return builder;
+            builder.AddCylinder(new Pose(new Vector3(innerSize, innerSize, -sideDepth), Quaternion.identity), sideRadius, 90f, qualitySides, sideDepth);
+            builder.AddFan(new Pose(new Vector3(innerSize, innerSize, -depth), Quaternion.identity), fanRadius, 90f, qualitySides);
+            builder.AddRevolvedArc(new Pose(new Vector3(innerSize, innerSize, -depth), Quaternion.identity), sideRadius, edgeRadius, 90f, 90f, qualitySides, qualityZ);
+
         }
 
-        public static SliceyMeshBuilder CylinderHard(float qualityRadial)
+        public static SliceyMeshBuilder CylinderHard(SliceyMeshPortion portion, float qualityRadial)
         {
-            var builder = CylinderHardOctant(qualityRadial, 8);
-            builder.XYZSymmetry();
+            var builder = CylinderHardOctant(qualityRadial, PortionFactor(portion, false));
+            ApplySymmetry(ref builder, portion, false);
             return builder;
         }
 
@@ -208,10 +237,10 @@ namespace SliceyMesh
             builder.AddFan(new Pose(Vector3.back * 0.5f, Quaternion.identity), 0.5f, 90f, qualityRadial);
         }
 
-        public static SliceyMeshBuilder CylinderRoundZ(float qualityRadial, float qualityZ)
+        public static SliceyMeshBuilder CylinderRoundZ(SliceyMeshPortion portion, float qualityRadial, float qualityZ)
         {
-            var builder = CylinderRoundZOctant(qualityRadial, qualityZ, 8);
-            builder.XYZSymmetry();
+            var builder = CylinderRoundZOctant(qualityRadial, qualityZ, PortionFactor(portion, false));
+            ApplySymmetry(ref builder, portion, false);
             return builder;
         }
 
@@ -233,29 +262,6 @@ namespace SliceyMesh
             builder.AddCylinder(new Pose(Vector3.back * cylinderDepth, Quaternion.identity), primaryRadius, 90f, qualityRadial, cylinderDepth);
             builder.AddRevolvedArc(new Pose(Vector3.back * depth, Quaternion.identity), primaryRadius, edgeRadius, 90f, 90f, qualityRadial, qualityZ);
             builder.AddFan(new Pose(Vector3.back * depth, Quaternion.identity), primaryRadius - edgeRadius, 90f, qualityRadial);
-        }
-
-
-
-        public static SliceyMeshBuilder CylinderRoundZAsymmetric(float qualityRadial, float qualityZ1, float qualityZ2)
-        {
-            var builder = CylinderRoundZAsymmetricOctant(qualityRadial, qualityZ1, qualityZ2, 8);
-            builder.XYSymmetry();
-            return builder;
-        }
-
-        public static SliceyMeshBuilder CylinderRoundZAsymmetricOctant(float qualityRadial, float qualityZ1, float qualityZ2, int sizeFactor)
-        {
-            var builder = SliceyMeshBuilder.Begin((SliceyMeshBuilder.SizeForCylinder(90f, qualityRadial) + SliceyMeshBuilder.SizeForFan(90f, qualityRadial)) * sizeFactor);
-            AddCylinderRoundZAsymmetricOctant(ref builder, qualityRadial, qualityZ1);
-            AddCylinderRoundZAsymmetricOctant(ref builder, qualityRadial, qualityZ2);
-            return builder;
-        }
-
-        public static void AddCylinderRoundZAsymmetricOctant(ref SliceyMeshBuilder builder, float qualityRadial, float qualityZ)
-        {
-            builder.AddCylinder(new Pose(Vector3.back * 0.5f, Quaternion.identity), 0.5f, 90f, qualityRadial, 0.5f);
-            builder.AddFan(new Pose(Vector3.back * 0.5f, Quaternion.identity), 0.5f, 90f, qualityRadial);
         }
     }
 }

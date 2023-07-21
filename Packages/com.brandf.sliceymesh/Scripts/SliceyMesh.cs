@@ -60,6 +60,7 @@ namespace SliceyMesh
         public SliceyMeshCubeSubType CubeSubType = SliceyMeshCubeSubType.RoundSidesAndZ;
         public SliceyMeshCylinderSubType CylinderSubType = SliceyMeshCylinderSubType.RoundZ;
         public SliceyFaceMode FaceMode = SliceyFaceMode.Outside;
+        public SliceyMeshPortion Portion = SliceyMeshPortion.Full;
         public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
         public SliceyAnchor Anchor = SliceyAnchor.Center;
         public Vector3 ExplicitCenter;
@@ -257,6 +258,7 @@ namespace SliceyMesh
                     SliceyMeshType.Cylinder => (int)CylinderSubType,
                 },
                 FaceMode = FaceMode,
+                Portion = Portion,
                 Size = effectiveSize,
                 Pose = new Pose(Center, Orientation),
                 Radii = Radii,
@@ -394,11 +396,6 @@ namespace SliceyMesh
                                 radiiValue.y = EditorGUILayout.FloatField("Front/Back Edge Radius", radiiValue.y);
                                 radiiValue.z = radiiValue.y;
                                 break;
-                            case SliceyMeshCubeSubType.RoundSidesAndZAsymmetric:
-                                radiiValue.x = EditorGUILayout.FloatField("Side Edge Radius", radiiValue.x);
-                                radiiValue.y = EditorGUILayout.FloatField("Front Edge Radius", radiiValue.y);
-                                radiiValue.z = EditorGUILayout.FloatField("Back Edge Radius", radiiValue.z);
-                                break;
                         }
                         break;
                     case SliceyMeshType.Cylinder:
@@ -408,11 +405,6 @@ namespace SliceyMesh
                         {
                             case SliceyMeshCylinderSubType.RoundZ:
                                 radiiValue = Vector3.one * EditorGUILayout.FloatField("Edge Radius", radiiValue.x);
-                                break;
-                            case SliceyMeshCylinderSubType.RoundZAsymmetric:
-                                radiiValue.x = EditorGUILayout.FloatField("Front Edge Radius", radiiValue.x);
-                                radiiValue.y = EditorGUILayout.FloatField("Back Edge Radius", radiiValue.y);
-                                radiiValue.z = radiiValue.x;
                                 break;
                         }
                         break;
@@ -464,11 +456,6 @@ namespace SliceyMesh
                                 qualityValue.y = EditorGUILayout.FloatField("Front/Back Edge Quality", qualityValue.y);
                                 qualityValue.z = qualityValue.y;
                                 break;
-                            case SliceyMeshCubeSubType.RoundSidesAndZAsymmetric:
-                                qualityValue.x = EditorGUILayout.FloatField("Side Edge Quality", qualityValue.x);
-                                qualityValue.y = EditorGUILayout.FloatField("Front Edge Quality", qualityValue.y);
-                                qualityValue.z = EditorGUILayout.FloatField("Back Edge Quality", qualityValue.z);
-                                break;
                         }
                         break;
                     case SliceyMeshType.Cylinder:
@@ -481,11 +468,6 @@ namespace SliceyMesh
                                 qualityValue.x = EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
                                 qualityValue.y = EditorGUILayout.FloatField("Edge Quality", qualityValue.y);
                                 qualityValue.z = qualityValue.y;
-                                break;
-                            case SliceyMeshCylinderSubType.RoundZAsymmetric:
-                                qualityValue.x = EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
-                                qualityValue.y = EditorGUILayout.FloatField("Front Edge Quality", qualityValue.y);
-                                qualityValue.z = EditorGUILayout.FloatField("Back Edge Quality", qualityValue.z);
                                 break;
                         }
                         break;
@@ -509,6 +491,7 @@ namespace SliceyMesh
                     if (meshType == SliceyMeshType.Rect)
                         size.z = EditorGUILayout.FloatField("Depth", size.z);
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("FaceMode"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Portion"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Orientation"));
                     if (qualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
                         EditorGUILayout.PropertyField(serializedObject.FindProperty("_cameraOverride"));
