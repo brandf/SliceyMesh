@@ -61,6 +61,7 @@ namespace SliceyMesh
         public SliceyMeshCylinderSubType CylinderSubType = SliceyMeshCylinderSubType.RoundEdges;
         public SliceyFaceMode FaceMode = SliceyFaceMode.Outside;
         public SliceyMeshPortion Portion = SliceyMeshPortion.Full;
+        public bool PortionClosed = false;
         public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
         public SliceyAnchor Anchor = SliceyAnchor.Center;
         public Vector3 ExplicitCenter;
@@ -192,7 +193,7 @@ namespace SliceyMesh
             MeshFilter = gameObject.GetComponent<MeshFilter>();
             if (!MeshFilter)
                 MeshFilter = gameObject.AddComponent<MeshFilter>();
-            MeshFilter.hideFlags = HideFlags.None;// HideFlags.HideAndDontSave | HideFlags.HideInInspector;
+            MeshFilter.hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
             Renderer = gameObject.GetComponent<MeshRenderer>();
             if (!Renderer)
             {
@@ -262,6 +263,7 @@ namespace SliceyMesh
                 },
                 FaceMode = FaceMode,
                 Portion = Portion,
+                PortionClosed = PortionClosed,
                 Size = Size,
                 Pose = new Pose(Center, Orientation),
                 Radii = Radii,
@@ -276,7 +278,6 @@ namespace SliceyMesh
         public class Editor : UnityEditor.Editor
         {
             protected SliceyMesh Target => target as SliceyMesh;
-            bool UsingUncommon = false;
 
             public override void OnInspectorGUI()
             {
@@ -496,10 +497,18 @@ namespace SliceyMesh
 
             void EditUncommon(SliceyMeshType meshType, SliceyQualityFlags qualityFlags)
             {
-                if (UsingUncommon = EditorGUILayout.BeginFoldoutHeaderGroup(UsingUncommon, "Uncommon Settings"))
+                var uncommonProp = serializedObject.FindProperty("FaceMode");
+                if (uncommonProp.isExpanded = EditorGUILayout.BeginFoldoutHeaderGroup(uncommonProp.isExpanded, "Uncommon Settings"))
                 {
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("FaceMode"));
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Portion"));
+                    var portionProp = serializedObject.FindProperty("Portion");
+                    EditorGUILayout.PropertyField(portionProp);
+                    if ((SliceyMeshPortion)portionProp.enumValueIndex != SliceyMeshPortion.Full)
+                    {
+                        EditorGUI.indentLevel++;
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty("PortionClosed"));
+                        EditorGUI.indentLevel--;
+                    }
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Orientation"));
                     if (qualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
                         EditorGUILayout.PropertyField(serializedObject.FindProperty("_cameraOverride"));

@@ -43,7 +43,8 @@ namespace SliceyMesh
     {
         Full,
         Half,
-        Partial,
+        Quadrant,
+        Octant,
     }
 
     public struct SliceyConfig : IEquatable<SliceyConfig>
@@ -52,6 +53,7 @@ namespace SliceyMesh
         public int SubType; // cast based on value of Type
         public SliceyFaceMode FaceMode;
         public SliceyMeshPortion Portion;
+        public bool PortionClosed;
         public Pose Pose;
         public Vector3 Size;
         public Vector2 Radii;
@@ -59,7 +61,8 @@ namespace SliceyMesh
 
         public bool Equals(SliceyConfig other)
         {
-            return (Type, SubType, FaceMode, Portion, Pose, Size, Radii, Quality) == (other.Type, other.SubType, other.FaceMode, other.Portion, other.Pose, other.Size, other.Radii, other.Quality);
+            return (Type, SubType, FaceMode, Portion, PortionClosed, Pose, Size, Radii, Quality) == 
+                   (other.Type, other.SubType, other.FaceMode, other.Portion, other.PortionClosed, other.Pose, other.Size, other.Radii, other.Quality);
         }
 
         public override bool Equals(object obj)
@@ -74,7 +77,7 @@ namespace SliceyMesh
 
         public override int GetHashCode()
         {
-            return (Type, SubType, FaceMode, Portion, Pose, Size, Radii, Quality).GetHashCode();
+            return (Type, SubType, FaceMode, Portion, PortionClosed, Pose, Size, Radii, Quality).GetHashCode();
         }
     }
 
@@ -120,6 +123,7 @@ namespace SliceyMesh
 
     public class SliceyCache : MonoBehaviour
     {
+        public bool DisableCache = false;
         [Flags]
         public enum SliceyCacheLogFlags
         {
@@ -241,7 +245,7 @@ namespace SliceyMesh
             };
 
             // start with the best case scenario - it's already in the cache...
-            if (_cache.TryGetValue(key, out var complete))
+            if (!DisableCache && _cache.TryGetValue(key, out var complete))
             {
                 UpdateValue(ref key, ref complete);
                 Stats.hits++;
@@ -291,24 +295,27 @@ namespace SliceyMesh
                         },
                         SliceyMeshType.Cube => (SliceyMeshCubeSubType)config.SubType switch
                         {
-                            SliceyMeshCubeSubType.Hard                => SliceyCanonicalGenerator.CubeHard(config.Portion),
-                            SliceyMeshCubeSubType.RoundSides          => SliceyCanonicalGenerator.CubeRoundSides(config.Portion, config.Quality.x),
-                            SliceyMeshCubeSubType.RoundEdges          => SliceyCanonicalGenerator.CubeRoundEdges(config.Portion, config.Quality.x),
-                            SliceyMeshCubeSubType.RoundSidesFillet    => SliceyCanonicalGenerator.CubeRoundSidesFillet(config.Portion, canonicalFilletRadius, config.Quality.x, config.Quality.y),
+                            SliceyMeshCubeSubType.Hard                => SliceyCanonicalGenerator.CubeHard(config.Portion, config.PortionClosed),
+                            SliceyMeshCubeSubType.RoundSides          => SliceyCanonicalGenerator.CubeRoundSides(config.Portion, config.PortionClosed, config.Quality.x),
+                            SliceyMeshCubeSubType.RoundEdges          => SliceyCanonicalGenerator.CubeRoundEdges(config.Portion, config.PortionClosed, config.Quality.x),
+                            SliceyMeshCubeSubType.RoundSidesFillet    => SliceyCanonicalGenerator.CubeRoundSidesFillet(config.Portion, config.PortionClosed, canonicalFilletRadius, config.Quality.x, config.Quality.y),
                         },
                         SliceyMeshType.Cylinder => (SliceyMeshCylinderSubType)config.SubType switch
                         {
-                            SliceyMeshCylinderSubType.Hard       => SliceyCanonicalGenerator.CylinderHard(config.Portion, config.Quality.x),
-                            SliceyMeshCylinderSubType.RoundEdges => SliceyCanonicalGenerator.CylinderRoundEdges(config.Portion, config.Quality.x, config.Quality.y),
+                            SliceyMeshCylinderSubType.Hard       => SliceyCanonicalGenerator.CylinderHard(config.Portion, config.PortionClosed, config.Quality.x),
+                            SliceyMeshCylinderSubType.RoundEdges => SliceyCanonicalGenerator.CylinderRoundEdges(config.Portion, config.PortionClosed, config.Quality.x, config.Quality.y),
                         }
                     };
-                    _cache[canonicalKey] = new SliceyCacheValue()
-                    {
-                        LastAccessedCount = 1,
-                        LastAccessedFrame = Time.frameCount,
-                        Builder = canonicalBuilder
-                    };
 
+                    if (!DisableCache)
+                    {
+                        _cache[canonicalKey] = new SliceyCacheValue()
+                        {
+                            LastAccessedCount = 1,
+                            LastAccessedFrame = Time.frameCount,
+                            Builder = canonicalBuilder
+                        };
+                    }
                     Stats.generates++;
                     if (LogFlags.HasFlag(SliceyCacheLogFlags.Generates)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
                 }
@@ -379,16 +386,20 @@ namespace SliceyMesh
                     }
                 }
 
-                var complete2 = new SliceyCacheValue()
+                var mesh = completeBuilder.End();
+                if (!DisableCache)
                 {
-                    LastAccessedCount = 1,
-                    LastAccessedFrame = Time.frameCount,
-                    Mesh = completeBuilder.End()
-                };
-                _cache[key] = complete2;
+                    var complete2 = new SliceyCacheValue()
+                    {
+                        LastAccessedCount = 1,
+                        LastAccessedFrame = Time.frameCount,
+                        Mesh = mesh
+                    };
+                    _cache[key] = complete2;
+                }
                 Stats.count++;
 
-                return (complete2.Mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
+                return (mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
             }
         }
 
@@ -438,6 +449,7 @@ namespace SliceyMesh
             public override void OnInspectorGUI()
             {
                 //base.OnInspectorGUI();
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("DisableCache"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("LogFlags"));
                 GUI.enabled = false;
                 var statsJson = JsonUtility.ToJson(Target.Stats, true);
