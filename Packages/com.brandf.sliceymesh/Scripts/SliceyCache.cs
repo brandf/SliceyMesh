@@ -22,13 +22,14 @@ namespace SliceyMesh
     {
         Hard,
         RoundSides,
-        RoundSidesAndZ,
+        RoundEdges,
+        RoundSidesFillet,
     }
 
     public enum SliceyMeshCylinderSubType
     {
         Hard,
-        RoundZ,
+        RoundEdges,
     }
 
     public enum SliceyFaceMode
@@ -279,12 +280,13 @@ namespace SliceyMesh
                         {
                             SliceyMeshCubeSubType.Hard                => SliceyCanonicalGenerator.CubeHard(config.Portion),
                             SliceyMeshCubeSubType.RoundSides          => SliceyCanonicalGenerator.CubeRoundSides(config.Portion, config.Quality.x),
-                            SliceyMeshCubeSubType.RoundSidesAndZ      => SliceyCanonicalGenerator.CubeRoundSidesAndZ(config.Portion, config.Quality.x, config.Quality.y),
+                            SliceyMeshCubeSubType.RoundEdges          => SliceyCanonicalGenerator.CubeRoundEdges(config.Portion, config.Quality.x),
+                            SliceyMeshCubeSubType.RoundSidesFillet    => SliceyCanonicalGenerator.CubeRoundSidesFillet(config.Portion, config.Quality.x, config.Quality.y),
                         },
                         SliceyMeshType.Cylinder => (SliceyMeshCylinderSubType)config.SubType switch
                         {
-                            SliceyMeshCylinderSubType.Hard  => SliceyCanonicalGenerator.CylinderHard(config.Portion, config.Quality.x),
-                            SliceyMeshCylinderSubType.RoundZ => SliceyCanonicalGenerator.CylinderRoundZ(config.Portion, config.Quality.x, config.Quality.y),
+                            SliceyMeshCylinderSubType.Hard       => SliceyCanonicalGenerator.CylinderHard(config.Portion, config.Quality.x),
+                            SliceyMeshCylinderSubType.RoundEdges => SliceyCanonicalGenerator.CylinderRoundEdges(config.Portion, config.Quality.x, config.Quality.y),
                         }
                     };
                     _cache[canonicalKey] = new SliceyCacheValue()
@@ -315,25 +317,52 @@ namespace SliceyMesh
                         Stats.slicesCPU++;
                         if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - Slicing Mesh on CPU");
 
-                        var sourceInside = Vector3.one * 0.25f;
-                        var sourceOutside = Vector3.one * 0.5f;
-                        var targetOutside = config.Size * 0.5f;
-                        var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
 
-                        if (config.Type == SliceyMeshType.Rect || config.Type == SliceyMeshType.Cube && config.SubType == (int)SliceyMeshCubeSubType.RoundSides)
+                        if (config.Type == SliceyMeshType.Rect)
                         {
-                            completeBuilder.SliceRect(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
+                            var sourceInside2d = Vector2.one * 0.25f;
+                            var sourceOutside2d = Vector2.one * 0.5f;
+                            var targetOutside2d = (Vector2)config.Size * 0.5f;
+                            var targetInside2d = Vector2.Max(Vector2.zero, targetOutside2d - Vector2.one * config.Radii.x);
+                            completeBuilder.SliceRect(sourceInside2d, sourceOutside2d, targetInside2d, targetOutside2d, new Pose(config.Pose.position + Vector3.back * (config.Size.z * 0.5f), config.Pose.rotation));
                         }
                         else if (config.Type == SliceyMeshType.Cylinder)
                         {
-                            completeBuilder.SliceCylinder(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
+                            var outsideRadiusSource = 0.5f;
+                            var edgeRadiusSource = 0.25f;
+                            var insideRadiusSource = outsideRadiusSource - edgeRadiusSource;
+                            var outsideHalfDepthSource = 0.5f;
+                            var insideHalfDepthSource = outsideRadiusSource - edgeRadiusSource;
+
+                            var outsideRadiusTarget = config.Radii.x;
+                            var edgeRadiusTarget = config.Radii.y;
+                            var insideRadiusTarget = Mathf.Max(0, outsideRadiusTarget - edgeRadiusTarget);
+                            var outsideHalfDepthTarget = config.Size.z * 0.5f;
+                            var insideHalfDepthTarget = Mathf.Max(0, outsideHalfDepthTarget - edgeRadiusTarget);
+
+
+                            completeBuilder.SliceCylinder(new Vector2(insideRadiusSource, insideHalfDepthSource), new Vector2(outsideRadiusSource, outsideHalfDepthSource),
+                                                          new Vector2(insideRadiusTarget, insideHalfDepthTarget), new Vector2(outsideRadiusTarget, outsideHalfDepthTarget), config.Pose);
                         }
-                        else
+                        else // Cube
                         {
-                            if (config.SubType == (int)SliceyMeshCubeSubType.RoundSidesAndZ)
+                            var sourceInside = Vector3.one * 0.25f;
+                            var sourceOutside = Vector3.one * 0.5f;
+                            var targetOutside = config.Size * 0.5f;
+                            var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
+                            if (config.SubType == (int)SliceyMeshCubeSubType.RoundSides)
                             {
-                                sourceInside.z += 0.125f;
-                                targetInside.z = Mathf.Max(0f, targetOutside.z - config.Radii.y);
+
+                                sourceInside.z = sourceOutside.z - 0.001f;
+                                targetInside.z = targetOutside.z - 0.001f;
+                            }
+                            else if (config.SubType == (int)SliceyMeshCubeSubType.RoundEdges)
+                            {
+                            }
+                            else if (config.SubType == (int)SliceyMeshCubeSubType.RoundSidesFillet)
+                            {
+                                //sourceInside.z += 0.125f;
+                                //targetInside.z = Mathf.Max(0f, targetOutside.z - config.Radii.y);
                             }
                             completeBuilder.SliceCube(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
                         }

@@ -152,9 +152,9 @@ namespace SliceyMesh
             }
         }
 
-        Vector3 SliceRect(Vector3 v, Vector2 halfSizeInsideSource, Vector2 halfSizeOutsideSource, Vector2 halfSizeInsideTarget, Vector2 halfSizeOutsideTarget) => new Vector3(SliceLinear(v.x, halfSizeInsideSource.x, halfSizeOutsideSource.x, halfSizeInsideTarget.x, halfSizeOutsideTarget.x),
+        Vector3 SliceRect(Vector2 v, Vector2 halfSizeInsideSource, Vector2 halfSizeOutsideSource, Vector2 halfSizeInsideTarget, Vector2 halfSizeOutsideTarget) => new Vector3(SliceLinear(v.x, halfSizeInsideSource.x, halfSizeOutsideSource.x, halfSizeInsideTarget.x, halfSizeOutsideTarget.x),
                                                                                                                                                                               SliceLinear(v.y, halfSizeInsideSource.y, halfSizeOutsideSource.y, halfSizeInsideTarget.y, halfSizeOutsideTarget.y),
-                                                                                                                                                                              v.z);
+                                                                                                                                                                              0f);
 
         public void SliceCube(Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Pose pose)
         {
