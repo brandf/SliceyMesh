@@ -66,8 +66,8 @@ namespace SliceyMesh
         public Vector3 ExplicitCenter;
         public Quaternion Orientation = Quaternion.identity;
         public Vector3 Size = Vector3.one;
-        public Vector3 Radii = Vector3.one * 0.25f;
-        public Vector3 Quality = Vector3.one;
+        public Vector2 Radii = Vector2.one * 0.25f;
+        public Vector2 Quality = Vector2.one;
 
         public SliceyQualityFlags QualityFlags = (SliceyQualityFlags)(-1); // Everything
         public SliceyMaterialFlags MaterialFlags = SliceyMaterialFlags.ShaderSlicingNotSupported;
@@ -222,18 +222,18 @@ namespace SliceyMesh
         void OnValidate()
         {
             Size = Vector3.Max(Size, Vector3.zero);
-            Radii = Vector3.Max(Radii, Vector3.zero);
-            Quality = Vector3.Max(Quality, Vector3.zero);
+            Radii = Vector2.Max(Radii, Vector2.zero);
+            Quality = Vector2.Max(Quality, Vector2.zero);
         }
 
         void Update()
         {
             EnsureRenderer();
-            var explicitQuality = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : Vector3.one;
+            var explicitQuality = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : Vector2.one;
            
-            var radiusQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithRadius) ? Vector3.Min(Vector3.one * 0.1f + Radii * 2.857f, Vector3.one * 4f) : Vector3.one;
+            var radiusQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithRadius) ? Vector2.Min(Vector2.one * 0.1f + Radii * 2.857f, Vector2.one * 4f) : Vector2.one;
             // TODO: should be scale in view space
-            var scaleQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithScale) ? Mathf.Max(0.1f, Mathf.Min(transform.lossyScale.x, 3.0f)) : 1f;
+            var scaleQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithScale) ? Mathf.Max(0.1f, Mathf.Min(Mathf.Abs(transform.lossyScale.x), 3.0f)) : 1f;
             var distanceQualityModifier = 1.0f;
             if (QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
             {
@@ -366,14 +366,14 @@ namespace SliceyMesh
                 }
             }
 
-            Vector3 EditRadii(SliceyMeshType meshType, Vector3 size, SliceyMeshRectSubType rectSubType, SliceyMeshCubeSubType cubeSubType, SliceyMeshCylinderSubType cylinderSubType)
+            Vector2 EditRadii(SliceyMeshType meshType, Vector3 size, SliceyMeshRectSubType rectSubType, SliceyMeshCubeSubType cubeSubType, SliceyMeshCylinderSubType cylinderSubType)
             {
                 var radiiProp = serializedObject.FindProperty("Radii");
-                var radiiValue = radiiProp.vector3Value;
+                var radiiValue = radiiProp.vector2Value;
                 if (meshType == SliceyMeshType.Rect && rectSubType == SliceyMeshRectSubType.Hard ||
                     meshType == SliceyMeshType.Cube && cubeSubType == SliceyMeshCubeSubType.Hard)
                 {
-                    return Vector3.zero;
+                    return Vector2.zero;
                 }
 
                 EditorGUILayout.LabelField("Radii");
@@ -385,7 +385,7 @@ namespace SliceyMesh
                         switch (rectSubType)
                         {
                             case SliceyMeshRectSubType.Round:
-                                radiiValue = Vector3.one * EditorGUILayout.FloatField("Corner Radius", radiiValue.x);
+                                radiiValue = Vector2.one * EditorGUILayout.FloatField("Corner Radius", radiiValue.x);
                                 break;
                         }
                         break;
@@ -393,15 +393,14 @@ namespace SliceyMesh
                         switch (cubeSubType)
                         {
                             case SliceyMeshCubeSubType.RoundSides:
-                                radiiValue = Vector3.one * EditorGUILayout.FloatField("Side Edge Radius", radiiValue.x);
+                                radiiValue = Vector2.one * EditorGUILayout.FloatField("Side Edge Radius", radiiValue.x);
                                 break;
                             case SliceyMeshCubeSubType.RoundEdges:
-                                radiiValue = Vector3.one * EditorGUILayout.FloatField("Edge Radius", radiiValue.x);
+                                radiiValue = Vector2.one * EditorGUILayout.FloatField("Edge Radius", radiiValue.x);
                                 break;
                             case SliceyMeshCubeSubType.RoundSidesFillet:
                                 radiiValue.x = EditorGUILayout.FloatField("Side Edge Radius", radiiValue.x);
                                 radiiValue.y = EditorGUILayout.FloatField("Fillet Radius", radiiValue.y);
-                                radiiValue.z = radiiValue.y;
                                 break;
                         }
                         break;
@@ -411,17 +410,17 @@ namespace SliceyMesh
                         switch (cylinderSubType)
                         {
                             case SliceyMeshCylinderSubType.Hard:
-                                radiiValue.y = radiiValue.z = 0f;
+                                radiiValue.y = 0f;
                                 break;
                             case SliceyMeshCylinderSubType.RoundEdges:
-                                radiiValue.y = radiiValue.z = EditorGUILayout.FloatField("Edge Radius", radiiValue.y);
+                                radiiValue.y = EditorGUILayout.FloatField("Edge Radius", radiiValue.y);
                                 break;
                         }
                         break;
                 };
 
                 EditorGUI.indentLevel--;
-                radiiProp.vector3Value = radiiValue;
+                radiiProp.vector2Value = radiiValue;
                 return radiiValue;
             }
 
@@ -442,7 +441,7 @@ namespace SliceyMesh
 
 
                 var qualityProp = serializedObject.FindProperty("Quality");
-                var qualityValue = qualityProp.vector3Value;
+                var qualityValue = qualityProp.vector2Value;
 
                 EditorGUI.indentLevel++;
                 switch (meshType)
@@ -451,7 +450,7 @@ namespace SliceyMesh
                         switch (rectSubType)
                         {
                             case SliceyMeshRectSubType.Round:
-                                qualityValue = Vector3.one * EditorGUILayout.FloatField("Corner Quality", qualityValue.x);
+                                qualityValue = Vector2.one * EditorGUILayout.FloatField("Corner Quality", qualityValue.x);
                                 break;
                         }
                         break;
@@ -459,15 +458,14 @@ namespace SliceyMesh
                         switch (cubeSubType)
                         {
                             case SliceyMeshCubeSubType.RoundSides:
-                                qualityValue = Vector3.one * EditorGUILayout.FloatField("Side Edge Quality", qualityValue.x);
+                                qualityValue = Vector2.one * EditorGUILayout.FloatField("Side Edge Quality", qualityValue.x);
                                 break;
                             case SliceyMeshCubeSubType.RoundEdges:
-                                qualityValue = Vector3.one * EditorGUILayout.FloatField("Edge Quality", qualityValue.x);
+                                qualityValue = Vector2.one * EditorGUILayout.FloatField("Edge Quality", qualityValue.x);
                                 break;
                             case SliceyMeshCubeSubType.RoundSidesFillet:
                                 qualityValue.x = EditorGUILayout.FloatField("Side Edge Quality", qualityValue.x);
                                 qualityValue.y = EditorGUILayout.FloatField("Fillet Quality", qualityValue.y);
-                                qualityValue.z = qualityValue.y;
                                 break;
                         }
                         break;
@@ -475,19 +473,18 @@ namespace SliceyMesh
                         switch (cylinderSubType)
                         {
                             case SliceyMeshCylinderSubType.Hard:
-                                qualityValue = Vector3.one * EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
+                                qualityValue = Vector2.one * EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
                                 break;
                             case SliceyMeshCylinderSubType.RoundEdges:
                                 qualityValue.x = EditorGUILayout.FloatField("Radial Quality", qualityValue.x);
                                 qualityValue.y = EditorGUILayout.FloatField("Edge Quality", qualityValue.y);
-                                qualityValue.z = qualityValue.y;
                                 break;
                         }
                         break;
                 };
 
 
-                qualityProp.vector3Value = qualityValue;
+                qualityProp.vector2Value = qualityValue;
                 EditorGUI.indentLevel--;
                 return qualityFlags;
             }

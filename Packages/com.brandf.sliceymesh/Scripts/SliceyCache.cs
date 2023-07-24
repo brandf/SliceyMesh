@@ -54,8 +54,8 @@ namespace SliceyMesh
         public SliceyMeshPortion Portion;
         public Pose Pose;
         public Vector3 Size;
-        public Vector3 Radii;
-        public Vector3 Quality;
+        public Vector2 Radii;
+        public Vector2 Quality;
 
         public bool Equals(SliceyConfig other)
         {
@@ -233,8 +233,6 @@ namespace SliceyMesh
                 config.Quality.x = SliceyMeshBuilder.QualityForSegments(90f, SliceyMeshBuilder.SegmentsForAngle(90f, config.Quality.x));
             if (config.Quality.y != 0f)
                 config.Quality.y = SliceyMeshBuilder.QualityForSegments(90f, SliceyMeshBuilder.SegmentsForAngle(90f, config.Quality.y));
-            if (config.Quality.z != 0f)
-                config.Quality.z = SliceyMeshBuilder.QualityForSegments(90f, SliceyMeshBuilder.SegmentsForAngle(90f, config.Quality.z));
 
             var key = new SliceyCacheKey()
             {
@@ -260,7 +258,22 @@ namespace SliceyMesh
                 canonicalKey.Config.FaceMode = SliceyFaceMode.Outside;
                 canonicalKey.Config.Size = Vector3.one;
                 canonicalKey.Config.Pose = Pose.identity;
-                canonicalKey.Config.Radii = new Vector4(0.25f, 0f ,0f);
+
+                var effectiveDesiredFilletRadius = Mathf.Min(key.Config.Radii.y, key.Config.Radii.x); // fillet can't be bigger than primary radius
+                var canonicalFilletRadius = key.Config.Radii.y;
+                // cube slicing can't handle multiple different radii, so fillet radius need to be handled specially.
+                // the canonical shape typically has a canonnical radius, however the fillet radius is variable so that when the primary radius
+                // is streched during slicing, the fillet radius ends up being what we want.  Otherwise we would need much more complicated slicing.
+                // This does mean that changing the radii of these shapes is more expensive than others, but changing the size is still cheaper.
+                if (config.Type == SliceyMeshType.Cube && (SliceyMeshCubeSubType)config.SubType == SliceyMeshCubeSubType.RoundSidesFillet)
+                {
+                    canonicalFilletRadius = effectiveDesiredFilletRadius;
+                    if (key.Config.Radii.x > 0.00001f)
+                    {
+                        canonicalFilletRadius *= 0.25f / key.Config.Radii.x;
+                    }
+                }
+                canonicalKey.Config.Radii = new Vector2(0.25f, canonicalFilletRadius);
                 if (_cache.TryGetValue(canonicalKey, out var canonical))
                 {
                     UpdateValue(ref canonicalKey, ref canonical);
@@ -281,7 +294,7 @@ namespace SliceyMesh
                             SliceyMeshCubeSubType.Hard                => SliceyCanonicalGenerator.CubeHard(config.Portion),
                             SliceyMeshCubeSubType.RoundSides          => SliceyCanonicalGenerator.CubeRoundSides(config.Portion, config.Quality.x),
                             SliceyMeshCubeSubType.RoundEdges          => SliceyCanonicalGenerator.CubeRoundEdges(config.Portion, config.Quality.x),
-                            SliceyMeshCubeSubType.RoundSidesFillet    => SliceyCanonicalGenerator.CubeRoundSidesFillet(config.Portion, config.Quality.x, config.Quality.y),
+                            SliceyMeshCubeSubType.RoundSidesFillet    => SliceyCanonicalGenerator.CubeRoundSidesFillet(config.Portion, canonicalFilletRadius, config.Quality.x, config.Quality.y),
                         },
                         SliceyMeshType.Cylinder => (SliceyMeshCylinderSubType)config.SubType switch
                         {
@@ -340,7 +353,6 @@ namespace SliceyMesh
                             var outsideHalfDepthTarget = config.Size.z * 0.5f;
                             var insideHalfDepthTarget = Mathf.Max(0, outsideHalfDepthTarget - edgeRadiusTarget);
 
-
                             completeBuilder.SliceCylinder(new Vector2(insideRadiusSource, insideHalfDepthSource), new Vector2(outsideRadiusSource, outsideHalfDepthSource),
                                                           new Vector2(insideRadiusTarget, insideHalfDepthTarget), new Vector2(outsideRadiusTarget, outsideHalfDepthTarget), config.Pose);
                         }
@@ -361,8 +373,6 @@ namespace SliceyMesh
                             }
                             else if (config.SubType == (int)SliceyMeshCubeSubType.RoundSidesFillet)
                             {
-                                //sourceInside.z += 0.125f;
-                                //targetInside.z = Mathf.Max(0f, targetOutside.z - config.Radii.y);
                             }
                             completeBuilder.SliceCube(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
                         }
