@@ -10,11 +10,9 @@ namespace SliceyMesh
         [Flags]
         public enum SliceyQualityFlags
         {
-            None                   = 0,
-            Explicit               = 1 << 0,
-            AdjustWithRadius       = 1 << 1,
-            AdjustWithScale        = 1 << 2,
-            AdjustWithViewDistance = 1 << 3,
+            Default   = 0,
+            Explicit  = 1 << 0,
+            Automatic = 1 << 1,
         }
 
         public enum SliceyOriginType
@@ -231,12 +229,14 @@ namespace SliceyMesh
         {
             EnsureRenderer();
             var explicitQuality = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : Vector2.one;
-           
-            var radiusQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithRadius) ? Vector2.Min(Vector2.one * 0.1f + Radii * 2.857f, Vector2.one * 4f) : Vector2.one;
+            var autoLOD = QualityFlags.HasFlag(SliceyQualityFlags.Automatic);
+
+
+            var radiusQualityModifier = autoLOD ? Vector2.Min(Vector2.one * 0.1f + Radii * 2.857f, Vector2.one * 4f) : Vector2.one;
             // TODO: should be scale in view space
-            var scaleQualityModifier = QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithScale) ? Mathf.Max(0.1f, Mathf.Min(Mathf.Abs(transform.lossyScale.x), 3.0f)) : 1f;
+            var scaleQualityModifier = autoLOD ? Mathf.Max(0.1f, Mathf.Min(Mathf.Abs(transform.lossyScale.x), 3.0f)) : 1f;
             var distanceQualityModifier = 1.0f;
-            if (QualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
+            if (autoLOD)
             {
                 var camera = Camera;
                 if (camera)
@@ -430,7 +430,7 @@ namespace SliceyMesh
                 if (meshType == SliceyMeshType.Rect && rectSubType == SliceyMeshRectSubType.Hard ||
                     meshType == SliceyMeshType.Cube && cubeSubType == SliceyMeshCubeSubType.Hard)
                 {
-                    return SliceyQualityFlags.None;
+                    return SliceyQualityFlags.Default;
                 }
 
                 var qualityFlagsProp = serializedObject.FindProperty("QualityFlags");
@@ -510,7 +510,7 @@ namespace SliceyMesh
                         EditorGUI.indentLevel--;
                     }
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Orientation"));
-                    if (qualityFlags.HasFlag(SliceyQualityFlags.AdjustWithViewDistance))
+                    if (qualityFlags.HasFlag(SliceyQualityFlags.Automatic))
                         EditorGUILayout.PropertyField(serializedObject.FindProperty("_cameraOverride"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("_cacheOverride"));
                 }
