@@ -61,8 +61,9 @@ namespace SliceyMesh
 
         public bool Equals(SliceyConfig other)
         {
-            return (Type, SubType, FaceMode, Portion, PortionClosed, Pose, Size, Radii, Quality) == 
-                   (other.Type, other.SubType, other.FaceMode, other.Portion, other.PortionClosed, other.Pose, other.Size, other.Radii, other.Quality);
+            // note the nested tuples - if you get too many in a single tuple the cache is broken for some reason
+            return ((Type, SubType), FaceMode, (Portion, PortionClosed), Pose, Size, Radii, Quality) == 
+                   ((other.Type, other.SubType), other.FaceMode, (other.Portion, other.PortionClosed), other.Pose, other.Size, other.Radii, other.Quality);
         }
 
         public override bool Equals(object obj)
@@ -77,7 +78,8 @@ namespace SliceyMesh
 
         public override int GetHashCode()
         {
-            return (Type, SubType, FaceMode, Portion, PortionClosed, Pose, Size, Radii, Quality).GetHashCode();
+            // note the nested tuples - if you get too many in a single tuple the cache is broken for some reason
+            return ((Type, SubType), FaceMode, (Portion, PortionClosed), Pose, Size, Radii, Quality).GetHashCode();
         }
     }
 
