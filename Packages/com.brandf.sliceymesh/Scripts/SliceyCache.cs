@@ -94,12 +94,9 @@ namespace SliceyMesh
     public enum SliceyShaderType
     {
         None,
-        Rect9Slice,
-        Rect16Slice,
-        Cublic27Slice,
-        Cublic256Slice,
-        CylinderSlice,
-        CylinderSlice2,
+        Rect,
+        Cube,
+        Cylinder,
     }
 
     
@@ -107,10 +104,9 @@ namespace SliceyMesh
     public enum SliceyMaterialFlags
     {
         ShaderSlicingNotSupported = 0,
-        SupportsRect9Slice        = 1 << 0,
-        SupportsRect16Slice       = 1 << 1,
-        SupportsCublic27Slice     = 1 << 2,
-        SupportsCublic256Slice    = 1 << 3,
+        SupportsRectSlice         = 1 << 0,
+        SupportsCubeSlice         = 1 << 1,
+        SupportsCylinderSlice     = 1 << 2,
     }
 
     public struct SliceyShaderParameters
@@ -376,12 +372,6 @@ namespace SliceyMesh
 
                                 sourceInside.z = sourceOutside.z - 0.001f;
                                 targetInside.z = targetOutside.z - 0.001f;
-                            }
-                            else if (config.SubType == (int)SliceyMeshCubeSubType.RoundEdges)
-                            {
-                            }
-                            else if (config.SubType == (int)SliceyMeshCubeSubType.RoundSidesFillet)
-                            {
                             }
                             completeBuilder.SliceCube(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
                         }
