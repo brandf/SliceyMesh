@@ -7,18 +7,17 @@ namespace SliceyMesh
 
     public class PerformanceTests : TestBase
     {
-        /*
         [Test, Performance]
-        public void MeshTypeNoCache([Values(SliceyMeshType.CuboidHard, 
-                                            SliceyMeshType.CuboidCylindrical, 
-                                            SliceyMeshType.CuboidSpherical)] SliceyMeshType type)
+        public void MeshTypeNoCache([Values(SliceyMeshType.Rect,
+                                            SliceyMeshType.Cube, 
+                                            SliceyMeshType.Cylinder)] SliceyMeshType type)
         {
             var config = new SliceyConfig()
             {
                 Type = type,
                 Size = new Vector3(1, 1, 1),
-                Radii = new Vector4(0.25f, 0f, 0f, 0f),
-                Quality = 1.0f,
+                Radii = new Vector2(0.25f, 0.25f),
+                Quality = new Vector2(1, 1),
             };
 
             Measure.Method(() =>
@@ -40,10 +39,11 @@ namespace SliceyMesh
         {
             var config = new SliceyConfig()
             {
-                Type = SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.Cube,
+                SubType = (int)SliceyMeshCubeSubType.RoundSidesFillet,
                 Size = new Vector3(1, 1, 1),
-                Radii = new Vector4(0.25f, 0f, 0f, 0f),
-                Quality = quality
+                Radii = new Vector2(0.25f, 0.25f),
+                Quality = Vector2.one * quality
             };
 
             Measure.Method(() =>
@@ -65,10 +65,11 @@ namespace SliceyMesh
         {
             var config = new SliceyConfig()
             {
-                Type = SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.Cube,
+                SubType = (int)SliceyMeshCubeSubType.RoundSidesFillet,
                 Size = new Vector3(1, 1, 1),
-                Radii = new Vector4(0.25f, 0f, 0f, 0f),
-                Quality = quality
+                Radii = new Vector2(0.25f, 0.25f),
+                Quality = Vector2.one * quality
             };
             Cache.Get(config, SliceyMaterialFlags.ShaderSlicingNotSupported);
 
@@ -87,10 +88,11 @@ namespace SliceyMesh
         {
             var configA = new SliceyConfig()
             {
-                Type = SliceyMeshType.CuboidSpherical,
+                Type = SliceyMeshType.Cube,
+                SubType = (int)SliceyMeshCubeSubType.RoundSidesFillet,
                 Size = new Vector3(1, 1, 1),
-                Radii = new Vector4(0.25f, 0f, 0f, 0f),
-                Quality = quality
+                Radii = new Vector2(0.25f, 0.25f),
+                Quality = Vector2.one * quality
             };
 
             //Different size but should share canonical with configA
@@ -111,6 +113,5 @@ namespace SliceyMesh
             MeasurementCount(100).
             Run();
         }
-        */
     }
 }

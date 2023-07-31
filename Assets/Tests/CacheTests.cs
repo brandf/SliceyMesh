@@ -14,7 +14,7 @@ namespace SliceyMesh
                 Type = SliceyMeshType.Cube,
                 SubType = (int)SliceyMeshCubeSubType.RoundSides,
                 Size = new Vector3(1, 1, 1),
-                Radii = new Vector4(0.25f, 0f, 0f, 0f),
+                Radii = new Vector2(0.25f, 0.25f),
                 Quality = new Vector2(1f, 1f),
             };
 
