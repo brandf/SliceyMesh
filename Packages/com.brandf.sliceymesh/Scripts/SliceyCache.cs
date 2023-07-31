@@ -7,12 +7,29 @@ namespace SliceyMesh
 {
     public enum SliceyMeshType
     {
-        CuboidHard,
-        CuboidCylindrical,
-        CuboidSpherical,
-        RectHard,
-        RectRound,
-        CuboidSphericalCylindrical,
+        Rect,
+        Cube,
+        Cylinder,
+    }
+
+    public enum SliceyMeshRectSubType
+    {
+        Hard,
+        Round,
+    }
+
+    public enum SliceyMeshCubeSubType
+    {
+        Hard,
+        RoundSides,
+        RoundEdges,
+        RoundSidesFillet,
+    }
+
+    public enum SliceyMeshCylinderSubType
+    {
+        Hard,
+        RoundEdges,
     }
 
     public enum SliceyFaceMode
@@ -22,18 +39,31 @@ namespace SliceyMesh
         DoubleSided,
     }
 
+    public enum SliceyMeshPortion
+    {
+        Full,
+        Half,
+        Quadrant,
+        Octant,
+    }
+
     public struct SliceyConfig : IEquatable<SliceyConfig>
     {
         public SliceyMeshType Type;
+        public int SubType; // cast based on value of Type
         public SliceyFaceMode FaceMode;
-        public Vector3 Size;
+        public SliceyMeshPortion Portion;
+        public bool PortionClosed;
         public Pose Pose;
-        public Vector4 Radii;
-        public float Quality;
+        public Vector3 Size;
+        public Vector2 Radii;
+        public Vector2 Quality;
 
         public bool Equals(SliceyConfig other)
         {
-            return (Type, FaceMode, Size, Pose, Radii, Quality) == (other.Type, other.FaceMode, other.Size, other.Pose, other.Radii, other.Quality);
+            // note the nested tuples - if you get too many in a single tuple the cache is broken for some reason
+            return ((Type, SubType), FaceMode, (Portion, PortionClosed), Pose, Size, Radii, Quality) == 
+                   ((other.Type, other.SubType), other.FaceMode, (other.Portion, other.PortionClosed), other.Pose, other.Size, other.Radii, other.Quality);
         }
 
         public override bool Equals(object obj)
@@ -48,7 +78,8 @@ namespace SliceyMesh
 
         public override int GetHashCode()
         {
-            return (Type, FaceMode, Size, Pose, Radii, Quality).GetHashCode();
+            // note the nested tuples - if you get too many in a single tuple the cache is broken for some reason
+            return ((Type, SubType), FaceMode, (Portion, PortionClosed), Pose, Size, Radii, Quality).GetHashCode();
         }
     }
 
@@ -63,10 +94,9 @@ namespace SliceyMesh
     public enum SliceyShaderType
     {
         None,
-        Rect9Slice,
-        Rect16Slice,
-        Cublic27Slice,
-        Cublic256Slice,
+        Rect,
+        Cube,
+        Cylinder,
     }
 
     
@@ -74,10 +104,9 @@ namespace SliceyMesh
     public enum SliceyMaterialFlags
     {
         ShaderSlicingNotSupported = 0,
-        SupportsRect9Slice        = 1 << 0,
-        SupportsRect16Slice       = 1 << 1,
-        SupportsCublic27Slice     = 1 << 2,
-        SupportsCublic256Slice    = 1 << 3,
+        SupportsRectSlice         = 1 << 0,
+        SupportsCubeSlice         = 1 << 1,
+        SupportsCylinderSlice     = 1 << 2,
     }
 
     public struct SliceyShaderParameters
@@ -92,6 +121,7 @@ namespace SliceyMesh
 
     public class SliceyCache : MonoBehaviour
     {
+        public bool DisableCache = false;
         [Flags]
         public enum SliceyCacheLogFlags
         {
@@ -201,7 +231,11 @@ namespace SliceyMesh
         public (Mesh, SliceyShaderParameters) Get(SliceyConfig config, SliceyMaterialFlags materialFlags)
         {
             // quantize the quality to points that actually change the number of segments.
-            config.Quality = SliceyMeshBuilder.QualityForSegments(90f, SliceyMeshBuilder.SegmentsForAngle(90f, config.Quality));
+            if (config.Quality.x != 0f)
+                config.Quality.x = SliceyMeshBuilder.QualityForSegments(90f, SliceyMeshBuilder.SegmentsForAngle(90f, config.Quality.x));
+            if (config.Quality.y != 0f)
+                config.Quality.y = SliceyMeshBuilder.QualityForSegments(90f, SliceyMeshBuilder.SegmentsForAngle(90f, config.Quality.y));
+
             var key = new SliceyCacheKey()
             {
                 Stage = SliceyCacheStage.CompleteResult,
@@ -209,7 +243,7 @@ namespace SliceyMesh
             };
 
             // start with the best case scenario - it's already in the cache...
-            if (_cache.TryGetValue(key, out var complete))
+            if (!DisableCache && _cache.TryGetValue(key, out var complete))
             {
                 UpdateValue(ref key, ref complete);
                 Stats.hits++;
@@ -226,7 +260,22 @@ namespace SliceyMesh
                 canonicalKey.Config.FaceMode = SliceyFaceMode.Outside;
                 canonicalKey.Config.Size = Vector3.one;
                 canonicalKey.Config.Pose = Pose.identity;
-                canonicalKey.Config.Radii = new Vector4(0.25f, 0f ,0f);
+
+                var effectiveDesiredFilletRadius = Mathf.Min(key.Config.Radii.y, key.Config.Radii.x); // fillet can't be bigger than primary radius
+                var canonicalFilletRadius = key.Config.Radii.y;
+                // cube slicing can't handle multiple different radii, so fillet radius need to be handled specially.
+                // the canonical shape typically has a canonnical radius, however the fillet radius is variable so that when the primary radius
+                // is streched during slicing, the fillet radius ends up being what we want.  Otherwise we would need much more complicated slicing.
+                // This does mean that changing the radii of these shapes is more expensive than others, but changing the size is still cheaper.
+                if (config.Type == SliceyMeshType.Cube && (SliceyMeshCubeSubType)config.SubType == SliceyMeshCubeSubType.RoundSidesFillet)
+                {
+                    canonicalFilletRadius = effectiveDesiredFilletRadius;
+                    if (key.Config.Radii.x > 0.00001f)
+                    {
+                        canonicalFilletRadius *= 0.25f / key.Config.Radii.x;
+                    }
+                }
+                canonicalKey.Config.Radii = new Vector2(0.25f, canonicalFilletRadius);
                 if (_cache.TryGetValue(canonicalKey, out var canonical))
                 {
                     UpdateValue(ref canonicalKey, ref canonical);
@@ -237,20 +286,34 @@ namespace SliceyMesh
                 {
                     canonicalBuilder = config.Type switch
                     {
-                        SliceyMeshType.CuboidHard        => SliceyCanonicalGenerator.CuboidHard(),
-                        SliceyMeshType.CuboidCylindrical => SliceyCanonicalGenerator.CuboidCylindrical(config.Quality),
-                        SliceyMeshType.CuboidSpherical   => SliceyCanonicalGenerator.CuboidSpherical(config.Quality),
-                        SliceyMeshType.RectHard          => SliceyCanonicalGenerator.RectHard(),
-                        SliceyMeshType.RectRound         => SliceyCanonicalGenerator.RectRound(config.Quality),
-                        SliceyMeshType.CuboidSphericalCylindrical => SliceyCanonicalGenerator.CuboidSphericalCylindrical(config.Quality),
-                    };
-                    _cache[canonicalKey] = new SliceyCacheValue()
-                    {
-                        LastAccessedCount = 1,
-                        LastAccessedFrame = Time.frameCount,
-                        Builder = canonicalBuilder
+                        SliceyMeshType.Rect => (SliceyMeshRectSubType)config.SubType switch
+                        {
+                            SliceyMeshRectSubType.Hard  => SliceyCanonicalGenerator.RectHard(config.Portion),
+                            SliceyMeshRectSubType.Round => SliceyCanonicalGenerator.RectRound(config.Portion, config.Quality.x),
+                        },
+                        SliceyMeshType.Cube => (SliceyMeshCubeSubType)config.SubType switch
+                        {
+                            SliceyMeshCubeSubType.Hard                => SliceyCanonicalGenerator.CubeHard(config.Portion, config.PortionClosed),
+                            SliceyMeshCubeSubType.RoundSides          => SliceyCanonicalGenerator.CubeRoundSides(config.Portion, config.PortionClosed, config.Quality.x),
+                            SliceyMeshCubeSubType.RoundEdges          => SliceyCanonicalGenerator.CubeRoundEdges(config.Portion, config.PortionClosed, config.Quality.x),
+                            SliceyMeshCubeSubType.RoundSidesFillet    => SliceyCanonicalGenerator.CubeRoundSidesFillet(config.Portion, config.PortionClosed, canonicalFilletRadius, config.Quality.x, config.Quality.y),
+                        },
+                        SliceyMeshType.Cylinder => (SliceyMeshCylinderSubType)config.SubType switch
+                        {
+                            SliceyMeshCylinderSubType.Hard       => SliceyCanonicalGenerator.CylinderHard(config.Portion, config.PortionClosed, config.Quality.x),
+                            SliceyMeshCylinderSubType.RoundEdges => SliceyCanonicalGenerator.CylinderRoundEdges(config.Portion, config.PortionClosed, config.Quality.x, config.Quality.y),
+                        }
                     };
 
+                    if (!DisableCache)
+                    {
+                        _cache[canonicalKey] = new SliceyCacheValue()
+                        {
+                            LastAccessedCount = 1,
+                            LastAccessedFrame = Time.frameCount,
+                            Builder = canonicalBuilder
+                        };
+                    }
                     Stats.generates++;
                     if (LogFlags.HasFlag(SliceyCacheLogFlags.Generates)) Debug.Log($"{nameof(SliceyCache)} - Cache miss, generating canonical mesh");
                 }
@@ -269,38 +332,66 @@ namespace SliceyMesh
                     var forceSynchronousMeshGeneration = true; // TODO: not always
                     if (materialFlags == SliceyMaterialFlags.ShaderSlicingNotSupported || forceSynchronousMeshGeneration)
                     {
-                        var sourceInside = Vector3.one * 0.25f;
-                        var sourceOutside = Vector3.one * 0.5f;
-                        var targetOutside = config.Size * 0.5f;
-                        var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
-                        if (config.Type == SliceyMeshType.CuboidCylindrical)
-                        {
-                            sourceInside.z = 1f;
-                            targetInside.z = config.Size.z;
-                        } 
-                        else if (config.Type == SliceyMeshType.RectHard || config.Type == SliceyMeshType.RectRound)
-                        {
-                            sourceInside.z = 1f;
-                            targetInside.z = 1f;
-                        }
-
                         Stats.slicesCPU++;
-                        if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - SliceMesh256");
-                        // TODO, sometimes we can use the cheaper SliceMesh27, SliceMesh16, or SliceMesh9
-                        completeBuilder.SliceMesh256(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
+                        if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - Slicing Mesh on CPU");
+
+
+                        if (config.Type == SliceyMeshType.Rect)
+                        {
+                            var sourceInside2d = Vector2.one * 0.25f;
+                            var sourceOutside2d = Vector2.one * 0.5f;
+                            var targetOutside2d = (Vector2)config.Size * 0.5f;
+                            var targetInside2d = Vector2.Max(Vector2.zero, targetOutside2d - Vector2.one * config.Radii.x);
+                            completeBuilder.SliceRect(sourceInside2d, sourceOutside2d, targetInside2d, targetOutside2d, new Pose(config.Pose.position + Vector3.back * (config.Size.z * 0.5f), config.Pose.rotation));
+                        }
+                        else if (config.Type == SliceyMeshType.Cylinder)
+                        {
+                            var outsideRadiusSource = 0.5f;
+                            var edgeRadiusSource = 0.25f;
+                            var insideRadiusSource = outsideRadiusSource - edgeRadiusSource;
+                            var outsideHalfDepthSource = 0.5f;
+                            var insideHalfDepthSource = outsideRadiusSource - edgeRadiusSource;
+
+                            var outsideRadiusTarget = config.Radii.x;
+                            var edgeRadiusTarget = config.Radii.y;
+                            var insideRadiusTarget = Mathf.Max(0, outsideRadiusTarget - edgeRadiusTarget);
+                            var outsideHalfDepthTarget = config.Size.z * 0.5f;
+                            var insideHalfDepthTarget = Mathf.Max(0, outsideHalfDepthTarget - edgeRadiusTarget);
+
+                            completeBuilder.SliceCylinder(new Vector2(insideRadiusSource, insideHalfDepthSource), new Vector2(outsideRadiusSource, outsideHalfDepthSource),
+                                                          new Vector2(insideRadiusTarget, insideHalfDepthTarget), new Vector2(outsideRadiusTarget, outsideHalfDepthTarget), config.Pose);
+                        }
+                        else // Cube
+                        {
+                            var sourceInside = Vector3.one * 0.25f;
+                            var sourceOutside = Vector3.one * 0.5f;
+                            var targetOutside = config.Size * 0.5f;
+                            var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
+                            if (config.SubType == (int)SliceyMeshCubeSubType.RoundSides)
+                            {
+
+                                sourceInside.z = sourceOutside.z - 0.001f;
+                                targetInside.z = targetOutside.z - 0.001f;
+                            }
+                            completeBuilder.SliceCube(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
+                        }
                     }
                 }
 
-                var complete2 = new SliceyCacheValue()
+                var mesh = completeBuilder.End();
+                if (!DisableCache)
                 {
-                    LastAccessedCount = 1,
-                    LastAccessedFrame = Time.frameCount,
-                    Mesh = completeBuilder.End()
-                };
-                _cache[key] = complete2;
+                    var complete2 = new SliceyCacheValue()
+                    {
+                        LastAccessedCount = 1,
+                        LastAccessedFrame = Time.frameCount,
+                        Mesh = mesh
+                    };
+                    _cache[key] = complete2;
+                }
                 Stats.count++;
 
-                return (complete2.Mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
+                return (mesh, new SliceyShaderParameters() { Type = SliceyShaderType.None });
             }
         }
 
@@ -350,6 +441,7 @@ namespace SliceyMesh
             public override void OnInspectorGUI()
             {
                 //base.OnInspectorGUI();
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("DisableCache"));
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("LogFlags"));
                 GUI.enabled = false;
                 var statsJson = JsonUtility.ToJson(Target.Stats, true);

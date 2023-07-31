@@ -37,6 +37,7 @@ namespace SliceyMesh
         public static int SegmentsForAngle(float angle, float quality) => Mathf.Max(1, 1 + Mathf.FloorToInt(quality * Mathf.Abs(angle) / 10f));
         public static float QualityForSegments(float angle, int segments) => (segments - 1) * 10 / Mathf.Abs(angle);
         public static SliceyCursor SizeForFan(float angle, float quality) => SizeForTri * SegmentsForAngle(angle, quality);
+        public static SliceyCursor SizeForRevolvedArc(float angleRadial, float angleArc, float qualityRadial, float qualityZ) => SizeForQuadStrip(SegmentsForAngle(angleArc, qualityZ)) * SegmentsForAngle(angleRadial, qualityRadial);
         public static SliceyCursor SizeForCylinder(float angle, float quality) => SizeForQuadStrip(SegmentsForAngle(angle, quality));
         public static SliceyCursor SizeForCorner3(float angle, float quality)
         {
@@ -105,57 +106,12 @@ namespace SliceyMesh
             return mesh;
         }
 
-        public void SliceMesh27(Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Pose pose)
+        public void SliceRect(Vector2 halfSizeInsideSource, Vector2 halfSizeOutsideSource, Vector2 halfSizeInsideTarget, Vector2 halfSizeOutsideTarget, Pose pose)
         {
-            SliceMesh27(Beginning, _offset, halfSizeInsideSource, halfSizeInsideTarget, pose);
-        }
-        public void SliceMesh27(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget, Pose pose)
-        {
-            var rotation = pose.rotation;
-            var position = pose.position;
-            var defaultRotation = rotation == Quaternion.identity;
-            var defaultPosition = position == Vector3.zero;
-            
-            // expand all combinations outside the loop to minimize inner-loop work
-            if (defaultRotation && defaultPosition)
-            {
-                for (var svo = start.vertex; svo < end.vertex; svo++)
-                {
-                    vertices[svo] = Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget);
-                }
-            }
-            else if (!defaultRotation && defaultPosition)
-            {
-                for (var svo = start.vertex; svo < end.vertex; svo++)
-                {
-                    vertices[svo] = rotation * Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget);
-                    normals[svo] = rotation * normals[svo];
-                }
-            }
-            else if (defaultRotation && !defaultPosition)
-            {
-                for (var svo = start.vertex; svo < end.vertex; svo++)
-                {
-                    vertices[svo] = Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget) + position;
-                }
-            }
-            else // both not default
-            {
-                for (var svo = start.vertex; svo < end.vertex; svo++)
-                {
-                    vertices[svo] = rotation * Slice27(vertices[svo], halfSizeInsideSource, halfSizeInsideTarget) + position;
-                    normals[svo] = rotation * normals[svo];
-                }
-            }
+            SliceRect(Beginning, _offset, halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget, pose);
         }
 
-
-        public void SliceMesh256(Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Pose pose)
-        {
-            SliceMesh256(Beginning, _offset, halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget, pose);
-        }
-
-        public void SliceMesh256(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Pose pose)
+        public void SliceRect(SliceyCursor start, SliceyCursor end, Vector2 halfSizeInsideSource, Vector2 halfSizeOutsideSource, Vector2 halfSizeInsideTarget, Vector2 halfSizeOutsideTarget, Pose pose)
         {
             var rotation = pose.rotation;
             var position = pose.position;
@@ -168,14 +124,14 @@ namespace SliceyMesh
             {
                 for (var svo = start.vertex; svo < end.vertex; svo++)
                 {
-                    vertices[svo] = Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
+                    vertices[svo] = SliceRect(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
                 }
             }
             else if (!defaultRotation && defaultPosition)
             {
                 for (var svo = start.vertex; svo < end.vertex; svo++)
                 {
-                    vertices[svo] = rotation * Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
+                    vertices[svo] = rotation * SliceRect(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
                     normals[svo] = rotation * normals[svo];
                 }
             }
@@ -183,44 +139,155 @@ namespace SliceyMesh
             {
                 for (var svo = start.vertex; svo < end.vertex; svo++)
                 {
-                    vertices[svo] = Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
+                    vertices[svo] = SliceRect(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
                 }
             }
             else // both not default
             {
                 for (var svo = start.vertex; svo < end.vertex; svo++)
                 {
-                    vertices[svo] = rotation * Slice256(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
+                    vertices[svo] = rotation * SliceRect(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
                     normals[svo] = rotation * normals[svo];
                 }
             }
         }
 
+        Vector3 SliceRect(Vector2 v, Vector2 halfSizeInsideSource, Vector2 halfSizeOutsideSource, Vector2 halfSizeInsideTarget, Vector2 halfSizeOutsideTarget) => new Vector3(SliceLinear(v.x, halfSizeInsideSource.x, halfSizeOutsideSource.x, halfSizeInsideTarget.x, halfSizeOutsideTarget.x),
+                                                                                                                                                                              SliceLinear(v.y, halfSizeInsideSource.y, halfSizeOutsideSource.y, halfSizeInsideTarget.y, halfSizeOutsideTarget.y),
+                                                                                                                                                                              0f);
 
-        Vector3 Slice27(Vector3 v, Vector3 halfSizeInsideSource, Vector3 halfSizeInsideTarget) => new Vector3(Slice3(v.x, halfSizeInsideSource.x, halfSizeInsideTarget.x),
-                                                                                                              Slice3(v.y, halfSizeInsideSource.y, halfSizeInsideTarget.y),
-                                                                                                              Slice3(v.z, halfSizeInsideSource.z, halfSizeInsideTarget.z));
-
-        Vector3 Slice256(Vector3 v, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget) => new Vector3(Slice4(v.x, halfSizeInsideSource.x, halfSizeOutsideSource.x, halfSizeInsideTarget.x, halfSizeOutsideTarget.x),
-                                                                                                                                                                             Slice4(v.y, halfSizeInsideSource.y, halfSizeOutsideSource.y, halfSizeInsideTarget.y, halfSizeOutsideTarget.y),
-                                                                                                                                                                             Slice4(v.z, halfSizeInsideSource.z, halfSizeOutsideSource.z, halfSizeInsideTarget.z, halfSizeOutsideTarget.z));
-
-        float Slice3(float p, float s, float t)
+        public void SliceCube(Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Pose pose)
         {
-            var sign = Mathf.Sign(p);
-            p = Mathf.Abs(p);
-            if (p < s) // inside = stretch
+            SliceCube(Beginning, _offset, halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget, pose);
+        }
+
+        public void SliceCube(SliceyCursor start, SliceyCursor end, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget, Pose pose)
+        {
+            var rotation = pose.rotation;
+            var position = pose.position;
+
+            var defaultRotation = rotation == Quaternion.identity;
+            var defaultPosition = position == Vector3.zero;
+
+            // expand all combinations outside the loop to minimize inner-loop work
+            if (defaultRotation && defaultPosition)
             {
-                p = p / s * t;
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = SliceCube(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
+                }
+            }
+            else if (!defaultRotation && defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * SliceCube(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget);
+                    normals[svo] = rotation * normals[svo];
+                }
+            }
+            else if (defaultRotation && !defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = SliceCube(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
+                }
+            }
+            else // both not default
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * SliceCube(vertices[svo], halfSizeInsideSource, halfSizeOutsideSource, halfSizeInsideTarget, halfSizeOutsideTarget) + position;
+                    normals[svo] = rotation * normals[svo];
+                }
+            }
+        }
+
+        Vector3 SliceCube(Vector3 v, Vector3 halfSizeInsideSource, Vector3 halfSizeOutsideSource, Vector3 halfSizeInsideTarget, Vector3 halfSizeOutsideTarget) => new Vector3(SliceLinear(v.x, halfSizeInsideSource.x, halfSizeOutsideSource.x, halfSizeInsideTarget.x, halfSizeOutsideTarget.x),
+                                                                                                                                                                              SliceLinear(v.y, halfSizeInsideSource.y, halfSizeOutsideSource.y, halfSizeInsideTarget.y, halfSizeOutsideTarget.y),
+                                                                                                                                                                              SliceLinear(v.z, halfSizeInsideSource.z, halfSizeOutsideSource.z, halfSizeInsideTarget.z, halfSizeOutsideTarget.z));
+
+
+
+        public void SliceCylinder(Vector2 radiusAndHalfDepthInsideSource, Vector2 radiusAndHalfDepthOutsideSource, Vector2 radiusAndHalfDepthInsideTarget, Vector2 radiusAndHalfDepthOutsideTarget, Pose pose)
+        {
+            SliceCylinder(Beginning, _offset, radiusAndHalfDepthInsideSource, radiusAndHalfDepthOutsideSource, radiusAndHalfDepthInsideTarget, radiusAndHalfDepthOutsideTarget, pose);
+        }
+
+        public void SliceCylinder(SliceyCursor start, SliceyCursor end, Vector2 radiusAndHalfDepthInsideSource, Vector2 radiusAndHalfDepthOutsideSource, Vector2 radiusAndHalfDepthInsideTarget, Vector2 radiusAndHalfDepthOutsideTarget, Pose pose)
+        {
+            var rotation = pose.rotation;
+            var position = pose.position;
+
+            var defaultRotation = rotation == Quaternion.identity;
+            var defaultPosition = position == Vector3.zero;
+
+            // expand all combinations outside the loop to minimize inner-loop work
+            if (defaultRotation && defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = SliceCylinder(vertices[svo], radiusAndHalfDepthInsideSource, radiusAndHalfDepthOutsideSource, radiusAndHalfDepthInsideTarget, radiusAndHalfDepthOutsideTarget);
+                }
+            }
+            else if (!defaultRotation && defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * SliceCylinder(vertices[svo], radiusAndHalfDepthInsideSource, radiusAndHalfDepthOutsideSource, radiusAndHalfDepthInsideTarget, radiusAndHalfDepthOutsideTarget);
+                    normals[svo] = rotation * normals[svo];
+                }
+            }
+            else if (defaultRotation && !defaultPosition)
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = SliceCylinder(vertices[svo], radiusAndHalfDepthInsideSource, radiusAndHalfDepthOutsideSource, radiusAndHalfDepthInsideTarget, radiusAndHalfDepthOutsideTarget) + position;
+                }
+            }
+            else // both not default
+            {
+                for (var svo = start.vertex; svo < end.vertex; svo++)
+                {
+                    vertices[svo] = rotation * SliceCylinder(vertices[svo], radiusAndHalfDepthInsideSource, radiusAndHalfDepthOutsideSource, radiusAndHalfDepthInsideTarget, radiusAndHalfDepthOutsideTarget) + position;
+                    normals[svo] = rotation * normals[svo];
+                }
+            }
+        }
+
+        Vector3 SliceCylinder(Vector3 v, Vector2 radiusAndHalfDepthInsideSource, Vector2 radiusAndHalfDepthOutsideSource, Vector2 radiusAndHalfDepthInsideTarget, Vector2 radiusAndHalfDepthOutsideTarget)
+        {
+            var xy = (Vector2)v;
+            var z = SliceLinear(v.z, radiusAndHalfDepthInsideSource.y, radiusAndHalfDepthOutsideSource.y, radiusAndHalfDepthInsideTarget.y, radiusAndHalfDepthOutsideTarget.y);
+            var m = xy.magnitude;
+            if (m > 0.000001f)
+            {
+                xy *= SliceLinearPositive(m, radiusAndHalfDepthInsideSource.x, radiusAndHalfDepthOutsideSource.x, radiusAndHalfDepthInsideTarget.x, radiusAndHalfDepthOutsideTarget.x) / m;
+                return new Vector3(xy.x, xy.y, z);
+            }
+            else
+            {
+                return new Vector3(0f, 0f, z);
+            }
+        }
+
+        float SliceLinearPositive(float p, float si, float so, float ti, float to)
+        {
+            if (p < si) // inside = stretch
+            {
+                p = p / si * ti;
+            }
+            else if (p < so) // between = lerp
+            {
+                p = (p - si) / (so - si) * (to - ti) + ti;
             }
             else // outside = offset
             {
-                p = t + (p - s);
+                p = to + (p - so);
             }
-            return sign * p; // re-apply sign
+            return p;
         }
 
-        float Slice4(float p, float si, float so, float ti, float to)
+        float SliceLinear(float p, float si, float so, float ti, float to)
         {
             var sign = Mathf.Sign(p);
             p = Mathf.Abs(p);
@@ -411,7 +478,7 @@ namespace SliceyMesh
             {
                 var ccur = deltaRot * cprev;
                 var cur = center + ccur;
-                AddTri(center, prev, cur, normal);
+                AddTri(center, cur, prev, normal);
                 cprev = ccur;
                 prev = cur;
             }
@@ -436,6 +503,47 @@ namespace SliceyMesh
                 normal = offset * invRadius;
                 point = center + offset;
                 StripTo(point + depthOffset, point, normal);
+            }
+        }
+
+        public void AddRevolvedArc(Pose p, float radius, float radiusZ, float angleRadius, float angleZ, float qualityRadius, float qualityZ)
+        {
+            var segmentsRadius = SegmentsForAngle(angleRadius, qualityRadius);
+            var segmentsZ = SegmentsForAngle(angleZ, qualityZ);
+            var deltaAngleRadius = angleRadius / segmentsRadius;
+            var deltaAngleZ = angleZ / segmentsZ;
+
+            var offsetInitial = Vector3.right * (radius - radiusZ);
+            var offsetInitialZ = Vector3.back * radiusZ;
+            var offsetCenter = offsetInitial - offsetInitialZ;
+            var invRadiusZ = 1f / radiusZ;
+
+            (Vector3, Vector3) GetPointAndNormal(float angleRadius, float angleZ)
+            {
+                var rotRadius = Quaternion.AngleAxis(angleRadius, Vector3.forward);
+                var rotZ = Quaternion.AngleAxis(angleZ, Vector3.down);
+                var offsetZ = rotZ * offsetInitialZ;
+                var point = rotRadius * (offsetCenter + offsetZ);
+                var normal = rotRadius * (offsetZ * invRadiusZ);
+                return (point, normal);
+            }
+            
+            for (var i = 0; i < segmentsRadius; ++i)
+            {
+                for (var j = 0; j <= segmentsZ; ++j)
+                {
+                    var (p1, n1) = GetPointAndNormal(i * deltaAngleRadius, j * deltaAngleZ);
+                    var (p2, n2) = GetPointAndNormal((i+1) * deltaAngleRadius, j * deltaAngleZ);
+
+                    // apply pose
+                    p1 = p.rotation * p1 + p.position;
+                    p2 = p.rotation * p2 + p.position;
+                    
+                    if (j == 0)
+                        StripStart(p1, p2, n1, n2);
+                    else
+                        StripTo(p1, p2, n1, n2);
+                }
             }
         }
 
@@ -496,19 +604,6 @@ namespace SliceyMesh
 
                 initialLocalPoint = initialLocalPointNext;
             }
-        }
-
-        public void AddQuad(Pose p, Vector2 halfSize)
-        {
-            var center = p.position;
-            var up = p.rotation * Vector3.up;
-            var right = p.rotation * Vector3.right;
-            var v1 = center + right * halfSize.x + up * halfSize.y;
-            var v2 = center + right * halfSize.x - up * halfSize.y;
-            var v3 = center - right * halfSize.x - up * halfSize.y;
-            var v4 = center - right * halfSize.x + up * halfSize.y;
-            var n = Vector3.Cross(up, right);
-            AddQuad(v1, v2, v3, v4, n);
         }
 
         public void StripStart(Vector3 v1, Vector3 v2, Vector3 n) => StripStart(v1, v2, n, n);
@@ -600,6 +695,21 @@ namespace SliceyMesh
             indices[io + 2] = vo;
             _offset = (vo + 1, io + 3);
         }
+
+
+        public void AddQuad(Pose p, Vector2 halfSize)
+        {
+            var center = p.position;
+            var up = p.rotation * Vector3.up;
+            var right = p.rotation * Vector3.right;
+            var v1 = center + right * halfSize.x + up * halfSize.y;
+            var v2 = center + right * halfSize.x - up * halfSize.y;
+            var v3 = center - right * halfSize.x - up * halfSize.y;
+            var v4 = center - right * halfSize.x + up * halfSize.y;
+            var n = Vector3.Cross(up, right);
+            AddQuad(v1, v2, v3, v4, n);
+        }
+
 
         /// <summary>
         /// Clockwise winding while looking at the front face
