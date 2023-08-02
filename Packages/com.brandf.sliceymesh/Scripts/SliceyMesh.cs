@@ -225,7 +225,7 @@ namespace SliceyMesh
             Quality = Vector2.Max(Quality, Vector2.zero);
         }
 
-        void Update()
+        void LateUpdate()
         {
             EnsureRenderer();
             var explicitQuality = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : Vector2.one;
