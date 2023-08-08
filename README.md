@@ -2,7 +2,7 @@
 
 Slicey Mesh is an open source Unity package (MIT license).  The purpose of the package is to dynamically generate parametric 3d shapes.  With an emphasis on 3d shapes with nice rounded edges.
 
-![Slicey Mesh Dark UI](Docs/SliceyMeshDark.mp4?raw=true "Slicey Mesh Dark UI")
+![Slicey Mesh Dark UI](Docs/SliceyMeshDark.gif?raw=true "Slicey Mesh Dark UI")
 
 # Features
 * Dynamically generate meshes for a variety of  parametrically sized shapes
@@ -15,12 +15,11 @@ Slicey Mesh is an open source Unity package (MIT license).  The purpose of the p
   - Utililze CPU and GPU
 
 
-
 ## What does it mean to be parametric?
 
 ![Slicey Mesh Editor](Docs/sliceymesheditor.gif?raw=true "Slicey Mesh Editor")
 
-Non-parametric shapes are basically static 3d models.  You could of course generate all of these shapes in your favorite 3d modeling software, but then you can't change/animate the size, corner radii, etc at runtime.  With a parametric shapes you can use the inspector or code to make changes to these things at runtime.
+Non-parametric shapes are basically static 3d models.  You could of course generate all of these shapes in your favorite 3d modeling software, but then you can't change/animate the size, corner radii, etc. at runtime.  With a parametric shapes you can use the inspector or code to make changes to these things at runtime.
 
 The shapes Slicey Mesh is capable of generating is more extensive than with what comes with Unity out of the box, mainly because it supports rounded edges and fillets.  As soon as you have these things, the difference between size and scale becomes apparent.  It's common practice to makes 1x2x3 meter cube in Unity by scaling it, but you really don't want your rounded edges stretched like that!  With Slicey Mesh you can parametrically change while preserving an edge radius, or vice versa.
 
@@ -42,7 +41,7 @@ Slicey Mesh generates triangles/geometry, even for 2d shapes like rounded rectan
 
 1) Meshes work better with MSAA - doing AA on SDF shapes requires alpha blending, which causes seaming issues.
 2) Meshes work better with the Z-buffer - SDF approaches do not benefit from a variety of hardware optimizations that modern GPUs provide for Z-culling.
-3) Meshes are overall less expensive - SDF approaches can be fast for simple 2d shapes, but for complex 3d shapes they end up looking like ray-tracing inside the pixel shader, which can be more expensive than the triangle-rasterizing alternatives.  With mesh generation, much of the cost is paid once at a loading time, and the results can be cached.
+3) Meshes are overall less expensive - SDF approaches can be fast for simple 2d shapes, but for complex 3d shapes they end up looking like ray-tracing inside the pixel shader, which can be more expensive than the triangle-rasterizing alternatives.  With mesh generation, much of the cost is paid once at loading time, and the results can be cached.
 
 ## What is Slicing?
 
