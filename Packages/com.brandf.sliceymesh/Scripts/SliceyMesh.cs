@@ -1,17 +1,34 @@
 using System;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace SliceyMesh
 {
+    [Serializable]
+    public struct SliceyMeshTypeStruct : IEquatable<SliceyMeshTypeStruct>
+    {
+        public SliceyMeshType Type;
+        public SliceyMeshRectSubType RectSubType;
+        public SliceyMeshCubeSubType CubeSubType;
+        public SliceyMeshCylinderSubType CylinderSubType;
+
+        public bool Equals(SliceyMeshTypeStruct other)
+        {
+            return Type == other.Type && (Type == SliceyMeshType.Rect ? RectSubType == other.RectSubType :
+                                          Type == SliceyMeshType.Cube ? CubeSubType == other.CubeSubType :
+                                          Type == SliceyMeshType.Cylinder ? CylinderSubType == other.CylinderSubType : false);
+        }
+    }
+
     [ExecuteAlways]
     public class SliceyMesh : MonoBehaviour
     {
         [Flags]
         public enum SliceyQualityFlags
         {
-            Default   = 0,
-            Explicit  = 1 << 0,
+            Default = 0,
+            Explicit = 1 << 0,
             Automatic = 1 << 1,
         }
 
@@ -53,17 +70,27 @@ namespace SliceyMesh
             BackTopRight,
         }
 
+        public void SetType(SliceyMeshTypeStruct type)
+        {
+            Type = type.Type;
+            RectSubType = type.RectSubType;
+            CubeSubType = type.CubeSubType;
+            CylinderSubType = type.CylinderSubType;
+        }
+
         public SliceyMeshType Type = SliceyMeshType.Cube;
         public SliceyMeshRectSubType RectSubType = SliceyMeshRectSubType.Round;
         public SliceyMeshCubeSubType CubeSubType = SliceyMeshCubeSubType.RoundEdges;
         public SliceyMeshCylinderSubType CylinderSubType = SliceyMeshCylinderSubType.RoundEdges;
         public SliceyFaceMode FaceMode = SliceyFaceMode.Outside;
-        public SliceyMeshPortion Portion = SliceyMeshPortion.Full;
+        public SliceyMeshPortion Portion = new SliceyMeshPortion();
         public bool PortionClosed = false;
+        public bool PortionFills = false;
         public SliceyOriginType OriginType = SliceyOriginType.FromAnchor;
         public SliceyAnchor Anchor = SliceyAnchor.Center;
         public Vector3 ExplicitCenter;
         public Quaternion Orientation = Quaternion.identity;
+        public float Scale = 1f;
         public Vector3 Size = Vector3.one;
         public Vector2 Radii = Vector2.one * 0.25f;
         public Vector2 Quality = Vector2.one;
@@ -118,6 +145,17 @@ namespace SliceyMesh
             Size = bounds.size;
         }
 
+        // Only needed so that Unity inspector can wire it up
+        public void SetRadii(Vector4 radii)
+        {
+            Radii = radii;
+        }
+
+        public void SetRadii(Vector2 radii)
+        {
+            Radii = radii;
+        }
+
         public Bounds LocalBounds
         {
             get => new Bounds(Center, Size);
@@ -126,32 +164,6 @@ namespace SliceyMesh
                 OriginType = SliceyOriginType.FromExplicitCenter;
                 ExplicitCenter = value.center;
                 Size = value.size;
-            }
-        }
-
-        Camera _lastCamera; // non-serialized cache so we don't do Camera.main every frame
-        [SerializeField]
-        Camera _cameraOverride;
-        public Camera Camera
-        {
-            get
-            {
-                
-                var camera = _cameraOverride;
-                if (!camera)
-                {
-                    camera = _lastCamera;
-                    if (!camera)
-                    {
-#if UNITY_EDITOR
-                        camera = _lastCamera = Application.isPlaying ? Camera.main : SceneView.lastActiveSceneView.camera;
-#else
-                        camera = _lastCamera = Camera.main;
-#endif
-                    }
-                }
-
-                return camera;
             }
         }
 
@@ -174,7 +186,10 @@ namespace SliceyMesh
                         cache = FindFirstObjectByType<SliceyCache>();
                         if (!cache)
                         {
-                            cache = new GameObject("SliceyCache").AddComponent<SliceyCache>();
+                            var go = GameObject.Find("SliceyCache");
+                            if (!go)
+                                go = new GameObject("SliceyCache");
+                            cache = go.AddComponent<SliceyCache>();
                         }
                         SliceyCache.DefaultCache = cache;
                     }
@@ -206,16 +221,52 @@ namespace SliceyMesh
             }
         }
 
+
+#if UNITY_2019_1_OR_NEWER
+        void BeginCameraRendering(ScriptableRenderContext ctx, Camera cam) => Render(cam);
+#endif
+
+        void SubscribeRender()
+        {
+            if (GraphicsSettings.renderPipelineAsset != null) // Using SRP
+            {
+#if UNITY_2019_1_OR_NEWER
+                RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
+#else
+				UnityEngine.Experimental.Rendering.RenderPipeline.beginCameraRendering += BeginCameraRendering;
+#endif
+            }
+            else
+                Camera.onPreCull += Render;
+        }
+
+        void UnsubscribeRender()
+        {
+            if (GraphicsSettings.renderPipelineAsset != null) // Using SRP
+            {
+#if UNITY_2019_1_OR_NEWER
+                RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
+#else
+				UnityEngine.Experimental.Rendering.RenderPipeline.beginCameraRendering -= BeginCameraRendering;
+#endif
+            }
+            else
+                Camera.onPreCull -= Render;
+        }
+
+
         private void OnEnable()
         {
             EnsureRenderer();
             Renderer.enabled = true;
+            SubscribeRender();
         }
 
         private void OnDisable()
         {
             EnsureRenderer();
             Renderer.enabled = false;
+            UnsubscribeRender();
         }
 
         void OnValidate()
@@ -225,32 +276,36 @@ namespace SliceyMesh
             Quality = Vector2.Max(Quality, Vector2.zero);
         }
 
-        void Update()
+        public void Render(Camera camera)
         {
             EnsureRenderer();
             var explicitQuality = QualityFlags.HasFlag(SliceyQualityFlags.Explicit) ? Quality : Vector2.one;
             var autoLOD = QualityFlags.HasFlag(SliceyQualityFlags.Automatic);
 
-
             var radiusQualityModifier = autoLOD ? Vector2.Min(Vector2.one * 0.1f + Radii * 2.857f, Vector2.one * 4f) : Vector2.one;
             // TODO: should be scale in view space
-            var scaleQualityModifier = autoLOD ? Mathf.Max(0.1f, Mathf.Min(Mathf.Abs(transform.lossyScale.x), 3.0f)) : 1f;
+            var scaleQualityModifier = autoLOD ? Mathf.Max(0.1f, Mathf.Min(Mathf.Abs(transform.lossyScale.x / camera.transform.lossyScale.x), 3.0f)) : 1f;
             var distanceQualityModifier = 1.0f;
             if (autoLOD)
             {
-                var camera = Camera;
-                if (camera)
-                { 
-                    var distance = (camera.transform.position - transform.position).magnitude;
-                    distance /= camera.transform.lossyScale.x;
-                    distanceQualityModifier = Mathf.Max(0.1f, Mathf.Min((4.0f - Mathf.Pow(distance, 1.0f / 5.0f) * 1.75f), 3.0f));
-                }
+                var distance = (camera.transform.position - transform.position).magnitude;
+                distance /= camera.transform.lossyScale.x;
+                distanceQualityModifier = Mathf.Max(0.1f, Mathf.Min((4.5f - Mathf.Pow(distance, 1.0f / 4.0f) * 1.75f), 3.0f));
             }
 
             var effectiveQuality = explicitQuality  * (scaleQualityModifier * distanceQualityModifier);
             effectiveQuality.Scale(radiusQualityModifier);
-            //Debug.Log($"distanceQualityModifier = {distanceQualityModifier}");
-            //Debug.Log($"effectiveQuality = {effectiveQuality}");
+            
+            /*
+            if (Selection.activeGameObject == gameObject)
+            {
+                Debug.Log($"frame: {Time.frameCount}");
+                Debug.Log($"scaleQualityModifier: {scaleQualityModifier}");
+                Debug.Log($"distanceQualityModifier: {distanceQualityModifier}");
+                Debug.Log($"radiusQualityModifier: {radiusQualityModifier.x}");
+                Debug.Log($"effectiveQuality: {effectiveQuality.x}");
+            }
+            */
 
             var (mesh, shaderParams) = Cache.Get(new SliceyConfig()
             {
@@ -264,8 +319,10 @@ namespace SliceyMesh
                 FaceMode = FaceMode,
                 Portion = Portion,
                 PortionClosed = PortionClosed,
+                PortionFills = PortionFills,
                 Size = Size,
                 Pose = new Pose(Center, Orientation),
+                Scale = Scale,
                 Radii = Radii,
                 Quality = effectiveQuality,
             }, MaterialFlags);
@@ -503,15 +560,20 @@ namespace SliceyMesh
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("FaceMode"));
                     var portionProp = serializedObject.FindProperty("Portion");
                     EditorGUILayout.PropertyField(portionProp);
-                    if ((SliceyMeshPortion)portionProp.enumValueIndex != SliceyMeshPortion.Full)
+                    var portionX = portionProp.FindPropertyRelative("X");
+                    var portionY = portionProp.FindPropertyRelative("Y");
+                    var portionZ = portionProp.FindPropertyRelative("Z");
+                    if ((SliceyMeshPortionAxis)portionX.enumValueIndex != SliceyMeshPortionAxis.Both ||
+                        (SliceyMeshPortionAxis)portionY.enumValueIndex != SliceyMeshPortionAxis.Both ||
+                        (SliceyMeshPortionAxis)portionZ.enumValueIndex != SliceyMeshPortionAxis.Both)
                     {
                         EditorGUI.indentLevel++;
                         EditorGUILayout.PropertyField(serializedObject.FindProperty("PortionClosed"));
+                        EditorGUILayout.PropertyField(serializedObject.FindProperty("PortionFills"));
                         EditorGUI.indentLevel--;
                     }
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("Orientation"));
-                    if (qualityFlags.HasFlag(SliceyQualityFlags.Automatic))
-                        EditorGUILayout.PropertyField(serializedObject.FindProperty("_cameraOverride"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("Scale"));
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("_cacheOverride"));
                 }
             }

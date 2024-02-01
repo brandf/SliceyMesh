@@ -39,13 +39,68 @@ namespace SliceyMesh
         DoubleSided,
     }
 
-    public enum SliceyMeshPortion
+    public enum SliceyMeshPortionAxis
+    {
+        Both,
+        Positive,
+        Negative,
+    }
+
+    public enum SliceyMeshPortionType
     {
         Full,
         Half,
         Quadrant,
-        Octant,
+        Octant
     }
+
+    [Serializable]
+    public struct SliceyMeshPortion : IEquatable<SliceyMeshPortion>
+    {
+        public SliceyMeshPortionAxis X;
+        public SliceyMeshPortionAxis Y;
+        public SliceyMeshPortionAxis Z;
+
+        public SliceyMeshPortionType Type
+        {
+            get
+            {
+                int PortionAxisCount(SliceyMeshPortionAxis a) => a == SliceyMeshPortionAxis.Both ? 1 : 0;
+                var count = PortionAxisCount(X) + PortionAxisCount(Y) + PortionAxisCount(Z);
+                switch (count)
+                {
+                    case 0:
+                        return SliceyMeshPortionType.Octant;
+                    case 1:
+                        return SliceyMeshPortionType.Quadrant;
+                    case 2:
+                        return SliceyMeshPortionType.Half;
+                    default:
+                        return SliceyMeshPortionType.Full;
+                }
+            }
+        }
+
+        public bool Equals(SliceyMeshPortion other)
+        {
+            return (X, Y, Z) == (other.X, other.Y, other.Z);
+        }
+        public override bool Equals(object obj)
+        {
+            if (obj is SliceyMeshPortion other)
+                return Equals(other);
+            return false;
+        }
+
+        public static bool operator ==(SliceyMeshPortion c1, SliceyMeshPortion c2) => c1.Equals(c2);
+        public static bool operator !=(SliceyMeshPortion c1, SliceyMeshPortion c2) => !c1.Equals(c2);
+
+        public override int GetHashCode()
+        {
+            return (X, Y, Z).GetHashCode();
+        }
+    }
+
 
     public struct SliceyConfig : IEquatable<SliceyConfig>
     {
@@ -54,7 +109,9 @@ namespace SliceyMesh
         public SliceyFaceMode FaceMode;
         public SliceyMeshPortion Portion;
         public bool PortionClosed;
+        public bool PortionFills;
         public Pose Pose;
+        public float Scale;
         public Vector3 Size;
         public Vector2 Radii;
         public Vector2 Quality;
@@ -62,8 +119,8 @@ namespace SliceyMesh
         public bool Equals(SliceyConfig other)
         {
             // note the nested tuples - if you get too many in a single tuple the cache is broken for some reason
-            return ((Type, SubType), FaceMode, (Portion, PortionClosed), Pose, Size, Radii, Quality) == 
-                   ((other.Type, other.SubType), other.FaceMode, (other.Portion, other.PortionClosed), other.Pose, other.Size, other.Radii, other.Quality);
+            return ((Type, SubType), FaceMode, (Portion, PortionClosed, PortionFills), (Pose, Scale, Size), Radii, Quality) == 
+                   ((other.Type, other.SubType), other.FaceMode, (other.Portion, other.PortionClosed, other.PortionFills), (other.Pose, other.Scale, other.Size), other.Radii, other.Quality);
         }
 
         public override bool Equals(object obj)
@@ -79,7 +136,7 @@ namespace SliceyMesh
         public override int GetHashCode()
         {
             // note the nested tuples - if you get too many in a single tuple the cache is broken for some reason
-            return ((Type, SubType), FaceMode, (Portion, PortionClosed), Pose, Size, Radii, Quality).GetHashCode();
+            return ((Type, SubType), FaceMode, (Portion, PortionClosed, PortionFills), (Pose, Scale, Size), Radii, Quality).GetHashCode();
         }
     }
 
@@ -171,7 +228,7 @@ namespace SliceyMesh
         }
 
         [Serializable]
-        struct SliceyCacheStats
+        public struct SliceyCacheStats
         {
             public int count;
             public int hits;
@@ -258,8 +315,10 @@ namespace SliceyMesh
                 var canonicalBuilder = new SliceyMeshBuilder();
                 canonicalKey.Stage = SliceyCacheStage.Canonical;
                 canonicalKey.Config.FaceMode = SliceyFaceMode.Outside;
+                canonicalKey.Config.PortionFills = false;
                 canonicalKey.Config.Size = Vector3.one;
                 canonicalKey.Config.Pose = Pose.identity;
+                canonicalKey.Config.Scale = 1f;
 
                 var effectiveDesiredFilletRadius = Mathf.Min(key.Config.Radii.y, key.Config.Radii.x); // fillet can't be bigger than primary radius
                 var canonicalFilletRadius = key.Config.Radii.y;
@@ -276,7 +335,7 @@ namespace SliceyMesh
                     }
                 }
                 canonicalKey.Config.Radii = new Vector2(0.25f, canonicalFilletRadius);
-                if (_cache.TryGetValue(canonicalKey, out var canonical))
+                if (!DisableCache && _cache.TryGetValue(canonicalKey, out var canonical))
                 {
                     UpdateValue(ref canonicalKey, ref canonical);
                     canonicalBuilder = canonical.Builder;
@@ -336,13 +395,35 @@ namespace SliceyMesh
                         if (LogFlags.HasFlag(SliceyCacheLogFlags.Slicing)) Debug.Log($"{nameof(SliceyCache)} - Slicing Mesh on CPU");
 
 
+                        float PortionOffset(SliceyMeshPortionAxis axis) => axis switch
+                        {
+                            SliceyMeshPortionAxis.Both => 0f,
+                            SliceyMeshPortionAxis.Positive => -1f,
+                            SliceyMeshPortionAxis.Negative => 1f,
+                        };
+
+                        float PortionSizeScale(SliceyMeshPortionAxis axis) => axis switch
+                        {
+                            SliceyMeshPortionAxis.Both => 1f,
+                            SliceyMeshPortionAxis.Positive => 2f,
+                            SliceyMeshPortionAxis.Negative => 2f,
+                        };
+
                         if (config.Type == SliceyMeshType.Rect)
                         {
                             var sourceInside2d = Vector2.one * 0.25f;
                             var sourceOutside2d = Vector2.one * 0.5f;
                             var targetOutside2d = (Vector2)config.Size * 0.5f;
+                            var fillOffset = config.PortionFills ? config.Scale * Vector2.Scale(targetOutside2d, new Vector2(PortionOffset(config.Portion.X), PortionOffset(config.Portion.Y))) : Vector2.zero;
+                            if (config.PortionFills)
+                                targetOutside2d = Vector2.Scale(targetOutside2d, new Vector2(PortionSizeScale(config.Portion.X), PortionSizeScale(config.Portion.Y)));
+
                             var targetInside2d = Vector2.Max(Vector2.zero, targetOutside2d - Vector2.one * config.Radii.x);
-                            completeBuilder.SliceRect(sourceInside2d, sourceOutside2d, targetInside2d, targetOutside2d, new Pose(config.Pose.position + Vector3.back * (config.Size.z * 0.5f), config.Pose.rotation));
+
+                            var pose = new Pose(config.Pose.position + Vector3.back * (config.Size.z * 0.5f), config.Pose.rotation);
+                            if (config.PortionFills)
+                                pose.position += (Vector3)fillOffset;
+                            completeBuilder.SliceRect(sourceInside2d, sourceOutside2d, targetInside2d, targetOutside2d, pose, config.Scale);
                         }
                         else if (config.Type == SliceyMeshType.Cylinder)
                         {
@@ -359,13 +440,16 @@ namespace SliceyMesh
                             var insideHalfDepthTarget = Mathf.Max(0, outsideHalfDepthTarget - edgeRadiusTarget);
 
                             completeBuilder.SliceCylinder(new Vector2(insideRadiusSource, insideHalfDepthSource), new Vector2(outsideRadiusSource, outsideHalfDepthSource),
-                                                          new Vector2(insideRadiusTarget, insideHalfDepthTarget), new Vector2(outsideRadiusTarget, outsideHalfDepthTarget), config.Pose);
+                                                          new Vector2(insideRadiusTarget, insideHalfDepthTarget), new Vector2(outsideRadiusTarget, outsideHalfDepthTarget), config.Pose, config.Scale);
                         }
                         else // Cube
                         {
                             var sourceInside = Vector3.one * 0.25f;
                             var sourceOutside = Vector3.one * 0.5f;
                             var targetOutside = config.Size * 0.5f;
+                            var fillOffset = config.PortionFills ? config.Scale * Vector3.Scale(targetOutside, new Vector3(PortionOffset(config.Portion.X), PortionOffset(config.Portion.Y), PortionOffset(config.Portion.Z))) : Vector3.zero;
+                            if (config.PortionFills)
+                                targetOutside = Vector3.Scale(targetOutside, new Vector3(PortionSizeScale(config.Portion.X), PortionSizeScale(config.Portion.Y), PortionSizeScale(config.Portion.Z)));
                             var targetInside = Vector3.Max(Vector3.zero, targetOutside - Vector3.one * config.Radii.x);
                             if (config.SubType == (int)SliceyMeshCubeSubType.RoundSides)
                             {
@@ -373,7 +457,8 @@ namespace SliceyMesh
                                 sourceInside.z = sourceOutside.z - 0.001f;
                                 targetInside.z = targetOutside.z - 0.001f;
                             }
-                            completeBuilder.SliceCube(sourceInside, sourceOutside, targetInside, targetOutside, config.Pose);
+                            var pose = config.PortionFills ? new Pose(config.Pose.position + fillOffset, config.Pose.rotation) : config.Pose;
+                            completeBuilder.SliceCube(sourceInside, sourceOutside, targetInside, targetOutside, pose, config.Scale);
                         }
                     }
                 }
